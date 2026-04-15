@@ -135,10 +135,12 @@
     <div id="knock-area">
       <span id="knock-target-name">Knock</span>
       <span id="knock-lock-status"></span>
-      <div style="display:flex; gap:6px;">
-        <button id="knock-btn" class="ctrl-btn">🚪 Knock</button>
-        <button id="notice-open-btn" class="ctrl-btn">📌 Notice Board</button>
-        <button id="lock-toggle-btn" class="ctrl-btn">🔒 Lock</button>
+      <div class="knock-hints">
+        <span id="knock-hint-e" class="key-hint"><kbd>E</kbd> Knock</span>
+        <span class="key-hint"><kbd>Q</kbd> <span id="lock-hint-text">Lock</span></span>
+        <button id="notice-open-btn" class="ctrl-btn">📌 Board</button>
+        <button id="knock-btn" class="ctrl-btn" style="display:none">🚪 Knock</button>
+        <button id="lock-toggle-btn" class="ctrl-btn" style="display:none">🔒</button>
       </div>
       <div id="knock-overlay">
         <input type="text" id="knock-input" placeholder="Message (e.g. meeting in 5)" maxlength="200">
@@ -175,37 +177,54 @@
         <span>🛋️ Decorate Office</span>
         <span id="furniture-arrow">▼</span>
       </div>
+      <div class="furn-category">Essentials</div>
       <div class="furniture-items" id="furniture-items">
+        <button class="furn-btn" data-type="desk" title="Desk">🟤</button>
         <button class="furn-btn" data-type="chair" title="Chair">🪑</button>
+        <button class="furn-btn" data-type="computer" title="Computer">💻</button>
+        <button class="furn-btn" data-type="monitor" title="Extra Monitor">🖥️</button>
         <button class="furn-btn" data-type="table" title="Table">🪵</button>
         <button class="furn-btn" data-type="couch" title="Couch">🛋️</button>
-        <button class="furn-btn" data-type="plant" title="Plant">🌿</button>
+        <button class="furn-btn" data-type="beanbag" title="Bean Bag">🫘</button>
         <button class="furn-btn" data-type="bookshelf" title="Bookshelf">📚</button>
-        <button class="furn-btn" data-type="whiteboard" title="Whiteboard">📋</button>
         <button class="furn-btn" data-type="lamp" title="Lamp">💡</button>
-        <button class="furn-btn" data-type="rug" title="Rug">🟫</button>
+        <button class="furn-btn" data-type="plant" title="Plant">🌿</button>
+        <button class="furn-btn" data-type="trashcan" title="Trash Can">🗑️</button>
+      </div>
+      <div class="furn-category">Walls & Floors</div>
+      <div class="furniture-items">
+        <button class="furn-btn" data-type="wall_h" title="Wall (Horizontal)">➖</button>
+        <button class="furn-btn" data-type="wall_v" title="Wall (Vertical)">|</button>
+        <button class="furn-btn" data-type="divider" title="Room Divider">🧱</button>
+        <button class="furn-btn" data-type="rug" title="Rug (Maroon)">🟫</button>
+        <button class="furn-btn" data-type="rug_blue" title="Rug (Blue)">🟦</button>
+        <button class="furn-btn" data-type="rug_green" title="Rug (Green)">🟩</button>
+        <button class="furn-btn" data-type="rug_gray" title="Rug (Gray)">⬜</button>
+        <button class="furn-btn" data-type="rug_black" title="Rug (Dark)">⬛</button>
+      </div>
+      <div class="furn-category">Decor</div>
+      <div class="furniture-items">
         <button class="furn-btn" data-type="poster" title="Poster">🖼️</button>
         <button class="furn-btn" data-type="clock" title="Clock">🕐</button>
         <button class="furn-btn" data-type="trophy" title="Trophy">🏆</button>
         <button class="furn-btn" data-type="sign" title="Sign">🪧</button>
+        <button class="furn-btn" data-type="figurine" title="Action Figure">🧸</button>
+        <button class="furn-btn" data-type="corkboard" title="Cork Board">📌</button>
+        <button class="furn-btn" data-type="whiteboard" title="Whiteboard">📋</button>
+      </div>
+      <div class="furn-category">Gamedev</div>
+      <div class="furniture-items">
         <button class="furn-btn" data-type="console" title="Game Console">🎮</button>
         <button class="furn-btn" data-type="easel" title="Canvas Easel">🎨</button>
         <button class="furn-btn" data-type="pinball" title="Pinball Machine">🕹️</button>
-        <button class="furn-btn" data-type="fridge" title="Monster Energy Fridge">🧊</button>
-        <button class="furn-btn" data-type="mic" title="Recording Mic + Booth">🎙️</button>
-        <button class="furn-btn" data-type="monitor" title="Extra Monitor">🖥️</button>
+        <button class="furn-btn" data-type="fridge" title="Monster Fridge">🧊</button>
+        <button class="furn-btn" data-type="mic" title="Recording Booth">🎙️</button>
         <button class="furn-btn" data-type="server" title="Server Rack">⬛</button>
-        <button class="furn-btn" data-type="beanbag" title="Bean Bag">🫘</button>
-        <button class="furn-btn" data-type="figurine" title="Action Figure">🧸</button>
-        <button class="furn-btn" data-type="headphones" title="Headphone Stand">🎧</button>
+        <button class="furn-btn" data-type="headphones" title="Headphones">🎧</button>
         <button class="furn-btn" data-type="keyboard" title="Mech Keyboard">⌨️</button>
-        <button class="furn-btn" data-type="corkboard" title="Cork Board">📌</button>
-        <button class="furn-btn" data-type="trashcan" title="Trash Can">🗑️</button>
         <button class="furn-btn" data-type="fan" title="Desk Fan">💨</button>
       </div>
-      <div class="furniture-menu-header" style="padding-top:4px">
-        <span>🐕 Pets</span>
-      </div>
+      <div class="furn-category">Pets</div>
       <div class="furniture-items" id="pet-items">
         <button class="furn-btn pet-btn" data-pet="dog_golden" title="Golden Retriever">🐕</button>
         <button class="furn-btn pet-btn" data-pet="dog_husky" title="Husky">🐺</button>
@@ -213,7 +232,7 @@
         <button class="furn-btn pet-btn" data-pet="dog_poodle" title="Poodle">🐩</button>
         <button class="furn-btn pet-btn" data-pet="dog_dalmation" title="Dalmatian">🐾</button>
       </div>
-      <p class="furniture-hint">Click a pet to place it in your office. Press F near a dog to pet it. Chat commands: /sit, /spin, /bark, /come, /goodboy</p>
+      <p class="furniture-hint">Click item → click in office. Right-click to remove. [F] Pet dog. Commands: /sit /spin /bark /come /goodboy</p>
     </div>
 
     <!-- Archives Chat Panel (visible in Archives room + Meeting Room) -->

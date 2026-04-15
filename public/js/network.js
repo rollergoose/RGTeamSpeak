@@ -25,10 +25,14 @@ export function emit(event, data) {
   if (socket) socket.emit(event, data);
 }
 
-// Throttled position send
+// Throttled position send — always send immediately when stopping
+let lastIsMoving = false;
 export function sendPosition(x, y, direction, isMoving) {
   const now = Date.now();
-  if (now - lastSendTime < POSITION_SEND_INTERVAL) return;
+  const stoppedMoving = lastIsMoving && !isMoving;
+  lastIsMoving = isMoving;
+  // Always send when player stops (so remote players see them stop)
+  if (!stoppedMoving && now - lastSendTime < POSITION_SEND_INTERVAL) return;
   lastSendTime = now;
   emit('player:move', { x, y, direction, isMoving });
 }

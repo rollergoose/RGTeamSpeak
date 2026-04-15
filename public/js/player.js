@@ -1,5 +1,9 @@
-import { MOVE_SPEED, PLAYER_WIDTH, PLAYER_HEIGHT, TILE_SIZE, MAP_WIDTH, MAP_HEIGHT } from './constants.js';
-import { isSolid } from './map.js';
+import { MOVE_SPEED, PLAYER_WIDTH, PLAYER_HEIGHT, TILE_SIZE, MAP_WIDTH, MAP_HEIGHT, T } from './constants.js';
+import { isSolid, getTile, ZONES_PX } from './map.js';
+
+// Lock checker — set by main.js
+let lockedDoorChecker = null;
+export function setLockedDoorChecker(fn) { lockedDoorChecker = fn; }
 
 export class Player {
   constructor(x, y, appearance) {
@@ -75,20 +79,23 @@ export class Player {
   }
 
   collides(px, py) {
-    // Check the 4 corners of the collision box
     const hw = PLAYER_WIDTH / 2;
     const hh = PLAYER_HEIGHT / 2;
     const corners = [
-      [px - hw + 2, py - hh + 2],   // top-left (slightly inset)
-      [px + hw - 3, py - hh + 2],   // top-right
-      [px - hw + 2, py + hh - 3],   // bottom-left
-      [px + hw - 3, py + hh - 3],   // bottom-right
+      [px - hw + 2, py - hh + 2],
+      [px + hw - 3, py - hh + 2],
+      [px - hw + 2, py + hh - 3],
+      [px + hw - 3, py + hh - 3],
     ];
 
     for (const [cx, cy] of corners) {
       const col = Math.floor(cx / TILE_SIZE);
       const row = Math.floor(cy / TILE_SIZE);
       if (isSolid(col, row)) return true;
+      // Check if this is a locked door
+      if (getTile(col, row) === T.DOOR && lockedDoorChecker) {
+        if (lockedDoorChecker(col, row)) return true;
+      }
     }
     return false;
   }

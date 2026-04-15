@@ -1,6 +1,7 @@
 import { SKIN_TONES, HAIR_COLORS, SHIRT_COLORS, PANTS_COLORS, HAIR_STYLES, SPAWN_X, SPAWN_Y, ZONE_TYPES, BANDWIDTH_OPTIONS, DEFAULT_BANDWIDTH, HATS, OUTFITS, FACES, LEVEL_CATEGORIES } from './constants.js';
 import { Player } from './player.js';
 import { initGame, setCallbacks, setInputFocused, getCamera } from './game.js';
+import { setLockedDoorChecker } from './player.js';
 import { initChat } from './chat.js';
 import { initVoice, joinVoice, leaveVoice, toggleMute, setVoiceStateCallback, getIsMuted } from './voice.js';
 import { initScreenShare, startScreenShare, stopScreenShare, setBitrate, setScreenStateCallback, getIsSharing, getActiveSharer } from './screenshare.js';
@@ -276,6 +277,8 @@ function setupZoneCallbacks() {
     if (zone.type === ZONE_TYPES.OFFICE) {
       statusPanel.classList.add('visible');
       document.getElementById('furniture-menu').classList.add('visible');
+      // Show notice board for this office
+      openNoticeBoard(zone.id, zone.name);
     }
 
     if (zone.type === ZONE_TYPES.ARCHIVES) {
@@ -305,6 +308,8 @@ function setupZoneCallbacks() {
     if (zone.type === ZONE_TYPES.OFFICE) {
       statusPanel.classList.remove('visible');
       document.getElementById('furniture-menu').classList.remove('visible');
+      // Close notice board when leaving office
+      document.getElementById('notice-board-overlay').classList.remove('visible');
     }
   });
 }
@@ -569,10 +574,19 @@ function setupGameCallbacks() {
       currentKnockTarget = target;
       const knockArea = document.getElementById('knock-area');
       const knockBtn = document.getElementById('knock-btn');
+      const noticeBtn = document.getElementById('notice-open-btn');
       if (target) {
         knockArea.classList.add('visible');
         document.getElementById('knock-target-name').textContent = target.zoneName;
-        knockBtn.style.display = target.occupant ? 'inline-block' : 'none';
+        // Show E hint only if someone is inside and we're outside
+        const knockHintE = document.getElementById('knock-hint-e');
+        knockHintE.style.display = (!target.isInside && target.occupant) ? 'inline' : 'none';
+        // Hide notice board from outside (opens auto inside)
+        noticeBtn.style.display = target.isInside ? 'none' : 'inline-block';
+        // Update lock hint
+        const lockHint = document.getElementById('lock-hint-text');
+        const isLocked = officeLocks[target.zoneId]?.locked;
+        lockHint.textContent = isLocked ? 'Unlock' : 'Lock';
         updateLockUI();
       } else {
         knockArea.classList.remove('visible');
@@ -581,10 +595,33 @@ function setupGameCallbacks() {
     },
     keyAction: (action) => {
       if (action === 'interact') {
+        // E key: Planning board OR knock on door
         const { isBoardNearby } = requireMap();
         if (isBoardNearby && isBoardNearby(localPlayer.x, localPlayer.y)) {
           if (isBoardOpen()) closeBoard();
           else openBoard();
+        } else if (currentKnockTarget && currentKnockTarget.occupant && !currentKnockTarget.isInside) {
+          // Knock on the door
+          const message = prompt('Knock message:') || 'Knock knock!';
+          network.emit('knock:send', { targetZoneId: currentKnockTarget.zoneId, message });
+          // Confirmation
+          const confirm = document.createElement('div');
+          confirm.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(46,204,113,0.9);color:#fff;padding:12px 24px;border-radius:10px;font-weight:600;font-size:14px;z-index:999;pointer-events:none;';
+          confirm.textContent = `✅ Knock sent to ${currentKnockTarget.zoneName}!`;
+          document.body.appendChild(confirm);
+          setTimeout(() => confirm.remove(), 2000);
+        }
+      }
+      if (action === 'lock') {
+        // Q key: Lock/unlock nearest office
+        if (currentKnockTarget) {
+          const officeId = currentKnockTarget.zoneId;
+          const isLocked = officeLocks[officeId]?.locked;
+          if (isLocked) {
+            network.emit('office:unlock', { officeId });
+          } else {
+            network.emit('office:lock', { officeId });
+          }
         }
       }
     },
@@ -1140,7 +1177,7 @@ let selectedFurniture = null;
 
 function setupFurnitureMenu() {
   const menu = document.getElementById('furniture-menu');
-  const buttons = document.querySelectorAll('.furn-btn');
+  const buttons = document.querySelectorAll('#furniture-items .furn-btn'); // only furniture, not pets
   const canvas = document.getElementById('game-canvas');
   const toggleBtn = document.getElementById('furniture-toggle');
   const arrow = document.getElementById('furniture-arrow');
@@ -1274,6 +1311,21 @@ function setupOfficeLocks() {
   });
 
   network.emit('office:get-locks', {});
+
+  // Set up the locked door collision checker for player.js
+  // Maps door tile positions to office IDs
+  const doorToOffice = {
+    '6,9': 'henrik', '7,9': 'henrik',
+    '19,9': 'alice', '20,9': 'alice',
+    '32,9': 'leo', '33,9': 'leo',
+  };
+
+  setLockedDoorChecker((col, row) => {
+    const key = col + ',' + row;
+    const officeId = doorToOffice[key];
+    if (!officeId) return false;
+    return !!(officeLocks[officeId]?.locked);
+  });
 }
 
 function updateLockUI() {
@@ -1507,20 +1559,70 @@ function showLevelUp(category, level) {
 function playLevelUpSound() {
   try {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    // Triumphant ascending notes
-    const notes = [523, 659, 784, 1047]; // C5, E5, G5, C6
-    notes.forEach((freq, i) => {
+    const t = ctx.currentTime;
+
+    // Helper to create an oscillator note
+    function playNote(freq, type, start, dur, vol) {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.connect(gain);
       gain.connect(ctx.destination);
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(freq, ctx.currentTime + i * 0.15);
-      gain.gain.setValueAtTime(0.3, ctx.currentTime + i * 0.15);
-      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + i * 0.15 + 0.4);
-      osc.start(ctx.currentTime + i * 0.15);
-      osc.stop(ctx.currentTime + i * 0.15 + 0.4);
-    });
+      osc.type = type;
+      osc.frequency.setValueAtTime(freq, t + start);
+      gain.gain.setValueAtTime(vol, t + start);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + start + dur);
+      osc.start(t + start);
+      osc.stop(t + start + dur);
+    }
+
+    // === Deep brass fanfare (trombone/horn) ===
+    playNote(131, 'sawtooth', 0, 0.6, 0.15);      // C3 low brass hit
+    playNote(165, 'sawtooth', 0, 0.6, 0.12);       // E3 harmony
+    playNote(196, 'sawtooth', 0.05, 0.55, 0.10);   // G3
+
+    // === Rising trumpet melody ===
+    playNote(262, 'square', 0.15, 0.25, 0.12);     // C4
+    playNote(330, 'square', 0.3, 0.25, 0.12);      // E4
+    playNote(392, 'square', 0.45, 0.25, 0.14);     // G4
+    playNote(523, 'square', 0.6, 0.5, 0.16);       // C5 — big hit!
+
+    // === Strings swell ===
+    playNote(523, 'sine', 0.6, 0.8, 0.10);         // C5
+    playNote(659, 'sine', 0.65, 0.75, 0.08);       // E5
+    playNote(784, 'sine', 0.7, 0.7, 0.08);         // G5
+
+    // === Second brass chord (the big payoff) ===
+    playNote(262, 'sawtooth', 0.6, 0.8, 0.12);     // C4
+    playNote(330, 'sawtooth', 0.6, 0.8, 0.10);     // E4
+    playNote(392, 'sawtooth', 0.6, 0.8, 0.10);     // G4
+    playNote(523, 'sawtooth', 0.6, 0.8, 0.08);     // C5
+
+    // === High sparkle / chime ===
+    playNote(1047, 'sine', 0.8, 0.4, 0.06);        // C6
+    playNote(1319, 'sine', 0.9, 0.3, 0.04);        // E6
+    playNote(1568, 'sine', 1.0, 0.3, 0.03);        // G6
+
+    // === Timpani / bass drum hits ===
+    playNote(65, 'sine', 0, 0.3, 0.2);             // deep boom
+    playNote(65, 'sine', 0.6, 0.4, 0.25);          // big boom on payoff
+
+    // === Applause (white noise bursts) ===
+    for (let i = 0; i < 8; i++) {
+      const bufferSize = 4096;
+      const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let j = 0; j < bufferSize; j++) data[j] = (Math.random() * 2 - 1) * 0.3;
+      const noise = ctx.createBufferSource();
+      noise.buffer = buffer;
+      const noiseGain = ctx.createGain();
+      noise.connect(noiseGain);
+      noiseGain.connect(ctx.destination);
+      const start = 0.8 + i * 0.15 + Math.random() * 0.1;
+      noiseGain.gain.setValueAtTime(0.03, t + start);
+      noiseGain.gain.exponentialRampToValueAtTime(0.001, t + start + 0.12);
+      noise.start(t + start);
+      noise.stop(t + start + 0.12);
+    }
   } catch (e) { /* audio not available */ }
 }
 

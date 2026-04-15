@@ -167,90 +167,71 @@ function createMap() {
   m[9][19] = T.DOOR; m[9][20] = T.DOOR;   // Alice
   m[9][32] = T.DOOR; m[9][33] = T.DOOR;   // Leo
 
-  // ========== HENRIK'S OFFICE (cols 1-12, rows 10-18) ==========
-  // Desk + computer (against left wall)
-  fill(2, 12, 2, 2, T.DESK);
-  m[12][2] = T.COMPUTER;
-  m[14][2] = T.CHAIR;
-  // Couch on right side
-  fill(9, 12, 1, 2, T.COUCH);
-  fill(10, 12, 1, 2, T.COUCH);
-  // Plants
-  m[10][1]  = T.PLANT;
-  m[10][11] = T.PLANT;
-  m[17][1]  = T.PLANT;
-  // Rug in middle
-  fill(5, 13, 3, 2, T.RUG);
+  // ========== OFFICES ARE EMPTY — players furnish them with the placement system ==========
+  // Henrik's Office (cols 1-12, rows 10-18) — empty
+  // Alice's Office (cols 14-25, rows 10-18) — empty
+  // Leo's Office (cols 27-38, rows 10-18) — empty
 
-  // ========== ALICE'S OFFICE (cols 14-25, rows 10-18) ==========
-  fill(15, 12, 2, 2, T.DESK);
-  m[12][15] = T.COMPUTER;
-  m[14][15] = T.CHAIR;
-  // Couch
-  fill(22, 12, 1, 2, T.COUCH);
-  fill(23, 12, 1, 2, T.COUCH);
-  // Plants
-  m[10][14] = T.PLANT;
-  m[10][24] = T.PLANT;
-  m[17][14] = T.PLANT;
-  // Rug
-  fill(18, 13, 3, 2, T.RUG);
-
-  // ========== LEO'S OFFICE (cols 27-38, rows 10-18) ==========
-  fill(28, 12, 2, 2, T.DESK);
-  m[12][28] = T.COMPUTER;
-  m[14][28] = T.CHAIR;
-  // Couch
-  fill(35, 12, 1, 2, T.COUCH);
-  fill(36, 12, 1, 2, T.COUCH);
-  // Plants
-  m[10][27] = T.PLANT;
-  m[10][37] = T.PLANT;
-  m[17][27] = T.PLANT;
-  // Rug
-  fill(31, 13, 3, 2, T.RUG);
-
-  // ========== OUTSIDE AREA (cols 40-48, rows 10-18) ==========
-  // Door from hallway to outside
-  vWall(39, 9, 11);  // already exists as Leo's right wall area
+  // ========== OUTSIDE YARD (cols 40-48, rows 10-27) ==========
+  // This is the entrance/yard — no building walls, just fence on edges
+  // Door from hallway to yard
+  vWall(39, 9, 2); // short wall above door
   m[9][41] = T.DOOR; m[9][42] = T.DOOR; // door from hallway
-  // Grass area with fence on right
-  fill(44, 10, 5, 9, T.GRASS);
-  vWall(43, 10, 9); // fence line
-  for (let r = 10; r < 19; r++) m[r][43] = T.FENCE;
-  // Sidewalk area
-  fill(40, 10, 3, 9, T.SIDEWALK);
-  m[11][41] = T.PLANT;
-  m[16][41] = T.PLANT;
-  m[12][46] = T.PLANT;
-  m[15][46] = T.PLANT;
+  vWall(39, 12, 8); // wall below door (office wall continues)
 
-  // ========== WINDOWS on office bottom walls ==========
-  // Henrik's windows (looking out to street)
-  m[19][4] = T.WINDOW; m[19][6] = T.WINDOW; m[19][8] = T.WINDOW;
-  // Alice's windows
-  m[19][17] = T.WINDOW; m[19][19] = T.WINDOW; m[19][21] = T.WINDOW;
-  // Leo's windows
-  m[19][30] = T.WINDOW; m[19][32] = T.WINDOW; m[19][34] = T.WINDOW;
+  // Yard is grass + sidewalk, fence on right and bottom
+  fill(40, 10, 9, 9, T.GRASS);       // grass yard
+  fill(40, 10, 2, 9, T.SIDEWALK);    // path from door
+  // Fence on right edge
+  for (let r = 10; r < 19; r++) m[r][49] = T.FENCE;
+  // Fence on bottom of yard
+  for (let c = 40; c < 49; c++) m[19][c] = T.FENCE;
+  // Remove outer walls in the yard area (replace with open/fence)
+  for (let r = 10; r < 19; r++) m[r][MAP_COLS - 1] = T.FENCE;
 
-  // ========== BOTTOM WALL of building ==========
-  hWall(0, 20, MAP_COLS);
-  // Door to go outside
-  m[20][24] = T.DOOR; m[20][25] = T.DOOR;
+  // Picnic blankets on grass
+  fill(44, 12, 2, 2, T.RUG);  // picnic blanket 1
+  fill(46, 15, 2, 2, T.RUG);  // picnic blanket 2
+  // Plants and decoration
+  m[11][43] = T.PLANT;
+  m[16][47] = T.PLANT;
+  m[14][45] = T.PLANT;
+
+  // ========== BOTTOM WALL with evenly spaced windows ==========
+  hWall(0, 19, 39); // bottom wall of offices (up to yard)
+
+  // Henrik's windows (cols 1-12, evenly at 3, 5, 7, 9)
+  m[19][3] = T.WINDOW; m[19][5] = T.WINDOW; m[19][7] = T.WINDOW; m[19][9] = T.WINDOW;
+  // Alice's windows (cols 14-25, evenly at 16, 18, 20, 22)
+  m[19][16] = T.WINDOW; m[19][18] = T.WINDOW; m[19][20] = T.WINDOW; m[19][22] = T.WINDOW;
+  // Leo's windows (cols 27-38, evenly at 29, 31, 33, 35)
+  m[19][29] = T.WINDOW; m[19][31] = T.WINDOW; m[19][33] = T.WINDOW; m[19][35] = T.WINDOW;
+
+  // ========== LOWER BUILDING WALL (row 20) ==========
+  hWall(0, 20, 40);
 
   // ========== SIDEWALK (row 21-22) ==========
-  fill(0, 21, MAP_COLS, 2, T.SIDEWALK);
+  fill(0, 21, 40, 2, T.SIDEWALK);  // sidewalk only in front of building
+  fill(40, 20, 9, 3, T.GRASS);     // yard continues down
 
   // ========== STREET (rows 23-25) ==========
-  fill(0, 23, MAP_COLS, 3, T.STREET);
-  // Road markings (dashed center line)
-  for (let c = 2; c < MAP_COLS; c += 4) {
-    m[24][c] = T.FLOOR; // yellow dashes — using floor color as contrast
+  fill(0, 23, 40, 3, T.STREET);
+  fill(40, 23, 9, 3, T.GRASS);     // grass continues beside street
+  // Road markings
+  for (let c = 2; c < 40; c += 4) {
+    m[24][c] = T.FLOOR;
   }
 
   // ========== BOTTOM SIDEWALK + GRASS (rows 26-27) ==========
-  fill(0, 26, MAP_COLS, 1, T.SIDEWALK);
-  fill(0, 27, MAP_COLS, 1, T.GRASS);
+  fill(0, 26, 40, 1, T.SIDEWALK);
+  fill(0, 27, 40, 1, T.GRASS);
+  fill(40, 26, 9, 2, T.GRASS);     // more yard grass
+  // Fence along the very bottom
+  for (let c = 40; c < 49; c++) m[27][c] = T.FENCE;
+  // More picnic blankets outside
+  fill(42, 24, 2, 2, T.RUG);
+  m[25][46] = T.PLANT;
+  m[21][44] = T.PLANT;
 
   return m;
 }

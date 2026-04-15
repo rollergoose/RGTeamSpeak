@@ -96,7 +96,11 @@ function onKeyDown(e) {
     e.preventDefault();
   }
   if (key === 'e' && onKeyAction) {
-    onKeyAction('interact');
+    onKeyAction('interact'); // Planning board OR knock
+    e.preventDefault();
+  }
+  if (key === 'q' && onKeyAction) {
+    onKeyAction('lock'); // Lock/unlock office door
     e.preventDefault();
   }
   if (key === 'f' && localPlayer) {
@@ -324,6 +328,20 @@ function drawPlacedFurniture(ctx, camera) {
 
 function drawFurnitureItem(ctx, x, y, type) {
   switch (type) {
+    case 'desk':
+      ctx.fillStyle = '#8b6914';
+      ctx.fillRect(x + 1, y + 1, S - 2, S - 2);
+      ctx.fillStyle = '#a07818';
+      ctx.fillRect(x + 1, y + 1, S - 2, 4);
+      break;
+    case 'computer':
+      ctx.fillStyle = '#2a2a2a';
+      ctx.fillRect(x + 6, y + 4, S - 12, S - 12);
+      ctx.fillStyle = '#4488ff';
+      ctx.fillRect(x + 8, y + 6, S - 16, S - 16);
+      ctx.fillStyle = '#444';
+      ctx.fillRect(x + 10, y + S - 10, S - 20, 6);
+      break;
     case 'chair':
       ctx.fillStyle = '#5a5a5a';
       ctx.fillRect(x + 8, y + 8, 16, 16);
@@ -674,6 +692,52 @@ function drawFurnitureItem(ctx, x, y, type) {
       ctx.fillStyle = '#888';
       ctx.fillRect(x + 12, y + 24, 8, 4);
       break;
+    case 'wall_h':
+      ctx.fillStyle = '#4a3f35';
+      ctx.fillRect(x, y + 12, S, 8);
+      ctx.fillStyle = '#5e5248';
+      ctx.fillRect(x, y + 15, S, 2);
+      break;
+    case 'wall_v':
+      ctx.fillStyle = '#4a3f35';
+      ctx.fillRect(x + 12, y, 8, S);
+      ctx.fillStyle = '#5e5248';
+      ctx.fillRect(x + 15, y, 2, S);
+      break;
+    case 'divider':
+      ctx.fillStyle = '#7a6a5a';
+      ctx.fillRect(x + 4, y + 2, S - 8, S - 4);
+      ctx.fillStyle = '#8d7d6d';
+      ctx.fillRect(x + 6, y + 4, S - 12, 3);
+      ctx.fillRect(x + 6, y + S - 8, S - 12, 3);
+      // Frame lines
+      ctx.strokeStyle = '#6a5a4a'; ctx.lineWidth = 1;
+      ctx.strokeRect(x + 5, y + 3, S - 10, S - 6);
+      break;
+    case 'rug_blue':
+      ctx.fillStyle = '#1a3a6a';
+      ctx.fillRect(x, y, S, S);
+      ctx.fillStyle = '#2a5a8a';
+      ctx.fillRect(x + 3, y + 3, S - 6, S - 6);
+      break;
+    case 'rug_green':
+      ctx.fillStyle = '#1a5a2a';
+      ctx.fillRect(x, y, S, S);
+      ctx.fillStyle = '#2a7a3a';
+      ctx.fillRect(x + 3, y + 3, S - 6, S - 6);
+      break;
+    case 'rug_gray':
+      ctx.fillStyle = '#888';
+      ctx.fillRect(x, y, S, S);
+      ctx.fillStyle = '#aaa';
+      ctx.fillRect(x + 3, y + 3, S - 6, S - 6);
+      break;
+    case 'rug_black':
+      ctx.fillStyle = '#222';
+      ctx.fillRect(x, y, S, S);
+      ctx.fillStyle = '#333';
+      ctx.fillRect(x + 3, y + 3, S - 6, S - 6);
+      break;
     default:
       ctx.fillStyle = 'rgba(150,150,150,0.5)';
       ctx.fillRect(x + 4, y + 4, S - 8, S - 8);
@@ -723,7 +787,18 @@ function drawSittingAnimation(ctx, sx, sy, zone) {
   }
 
   if (zone === 'meeting') {
-    // Applause
+    // Nodding / looking around — head bobbing indicator
+    const nod = Math.sin(now * 0.004);
+    const lookX = Math.sin(now * 0.002) * 2;
+    // Small nod indicator dots
+    if (nod > 0.3) {
+      ctx.fillStyle = 'rgba(46,204,113,0.6)';
+      ctx.beginPath(); ctx.arc(sx + lookX, sy - 36, 3, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+
+  if (zone === 'tv_area') {
+    // Applause in video room
     const clap = Math.sin(now * 0.008) > 0.5;
     if (clap) {
       ctx.font = '10px serif';
@@ -789,29 +864,38 @@ function checkKnockProximity() {
   if (!onOfficeProximityForKnock) return;
 
   const currentZone = getCurrentZone();
-  // Only show knock when in hallway
+  const officeZoneIds = ['henrik', 'alice', 'leo'];
+  const px = localPlayer.x;
+  const py = localPlayer.y;
+
+  // If INSIDE an office, show lock controls for that office
+  if (currentZone && officeZoneIds.includes(currentZone.id)) {
+    let occupant = null;
+    for (const rp of remotePlayers.values()) {
+      if (rp.zone === currentZone.id) { occupant = rp.username; break; }
+    }
+    onOfficeProximityForKnock({ zoneId: currentZone.id, zoneName: currentZone.name, occupant, isInside: true });
+    return;
+  }
+
+  // Only show knock/lock from hallway
   if (currentZone && currentZone.type !== ZONE_TYPES.HALLWAY) {
     onOfficeProximityForKnock(null);
     return;
   }
 
-  const officeZoneIds = ['henrik', 'alice', 'leo'];
-  const px = localPlayer.x;
-  const py = localPlayer.y;
-
-  // Check proximity to ANY office (for notice board + knock)
+  // Check proximity to ANY office door (close range)
   for (const zoneId of officeZoneIds) {
     const zone = ZONES_PX.find(z => z.id === zoneId);
     if (!zone) continue;
 
     const dist = distToRect(px, py, zone.x, zone.y, zone.w, zone.h);
-    if (dist < 3 * TILE_SIZE) {
-      // Check if someone is inside for knock
+    if (dist < 1.5 * TILE_SIZE) {
       let occupant = null;
       for (const rp of remotePlayers.values()) {
         if (rp.zone === zoneId) { occupant = rp.username; break; }
       }
-      onOfficeProximityForKnock({ zoneId, zoneName: zone.name, occupant });
+      onOfficeProximityForKnock({ zoneId, zoneName: zone.name, occupant, isInside: false });
       return;
     }
   }

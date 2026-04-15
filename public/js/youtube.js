@@ -1,93 +1,141 @@
 import * as network from './network.js';
+import { setInputFocused } from './game.js';
 
-let youtubeOverlay, youtubeInput, youtubeIframe, youtubeClear, youtubeInfo;
+let youtubeOverlay, youtubeInput, youtubeClear, youtubeInfo;
+let playerDiv, controlsDiv;
 let isInChillZone = false;
 let currentVideo = null;
-let iframeLoaded = false;
-let lastSyncTime = 0;
+let ytPlayer = null;
+let apiReady = false;
+let timeDisplay = null;
+let isPaused = false;
+
+// Load YouTube IFrame API
+function loadYTApi() {
+  if (window.YT && window.YT.Player) { apiReady = true; return; }
+  const tag = document.createElement('script');
+  tag.src = 'https://www.youtube.com/iframe_api';
+  document.head.appendChild(tag);
+  window.onYouTubeIframeAPIReady = () => { apiReady = true; };
+}
 
 export function initYouTube() {
+  loadYTApi();
+
   youtubeOverlay = document.getElementById('youtube-overlay');
   youtubeInput = document.getElementById('youtube-input');
-  youtubeIframe = document.getElementById('youtube-iframe');
   youtubeClear = document.getElementById('youtube-clear');
   youtubeInfo = document.getElementById('youtube-info');
+  playerDiv = document.getElementById('youtube-iframe');
+  controlsDiv = document.getElementById('youtube-controls');
+  timeDisplay = document.getElementById('yt-time');
 
   youtubeInput.addEventListener('keydown', (e) => {
     e.stopPropagation();
     if (e.key === 'Enter') submitUrl();
     if (e.key === 'Escape') youtubeInput.blur();
   });
+  youtubeInput.addEventListener('focus', () => setInputFocused(true));
+  youtubeInput.addEventListener('blur', () => setInputFocused(false));
 
   youtubeClear.addEventListener('click', () => {
     network.emit('youtube:clear', {});
   });
 
-  network.on('youtube:update', (data) => {
-    currentVideo = data;
-    updateDisplay();
+  // Controls
+  document.getElementById('yt-pause').addEventListener('click', () => {
+    if (ytPlayer && ytPlayer.pauseVideo) {
+      ytPlayer.pauseVideo();
+      isPaused = true;
+      const time = ytPlayer.getCurrentTime();
+      network.emit('youtube:pause', {});
+    }
   });
 
-  network.on('youtube:state', (data) => {
+  document.getElementById('yt-play').addEventListener('click', () => {
+    if (ytPlayer && ytPlayer.playVideo) {
+      ytPlayer.playVideo();
+      isPaused = false;
+      const time = ytPlayer.getCurrentTime();
+      network.emit('youtube:play', { time });
+    }
+  });
+
+  document.getElementById('yt-back').addEventListener('click', () => {
+    if (ytPlayer && ytPlayer.seekTo) {
+      const newTime = Math.max(0, ytPlayer.getCurrentTime() - 10);
+      ytPlayer.seekTo(newTime, true);
+      network.emit('youtube:seek', { time: newTime });
+    }
+  });
+
+  document.getElementById('yt-fwd').addEventListener('click', () => {
+    if (ytPlayer && ytPlayer.seekTo) {
+      const newTime = ytPlayer.getCurrentTime() + 10;
+      ytPlayer.seekTo(newTime, true);
+      network.emit('youtube:seek', { time: newTime });
+    }
+  });
+
+  // Time display update
+  setInterval(() => {
+    if (ytPlayer && ytPlayer.getCurrentTime && timeDisplay && !isPaused) {
+      const t = Math.floor(ytPlayer.getCurrentTime());
+      const m = Math.floor(t / 60);
+      const s = t % 60;
+      timeDisplay.textContent = `${m}:${s.toString().padStart(2, '0')}`;
+    }
+  }, 500);
+
+  // Server events
+  network.on('youtube:update', (data) => {
     currentVideo = data;
-    updateDisplay();
+    if (isInChillZone) loadVideo();
+    youtubeInfo.textContent = data.setBy ? `Playing — set by ${data.setBy}` : 'Playing';
+    youtubeClear.style.display = 'inline-block';
+    controlsDiv.style.display = 'flex';
   });
 
   network.on('youtube:cleared', () => {
     currentVideo = null;
-    iframeLoaded = false;
-    updateDisplay();
+    destroyPlayer();
+    youtubeInfo.textContent = 'No video playing. Paste a YouTube URL below!';
+    youtubeClear.style.display = 'none';
+    controlsDiv.style.display = 'none';
   });
 
-  // Sync: when another player seeks, jump to their position
+  network.on('youtube:pause', () => {
+    if (ytPlayer && ytPlayer.pauseVideo) {
+      ytPlayer.pauseVideo();
+      isPaused = true;
+    }
+  });
+
+  network.on('youtube:play', ({ time }) => {
+    if (ytPlayer && ytPlayer.seekTo) {
+      ytPlayer.seekTo(time, true);
+      ytPlayer.playVideo();
+      isPaused = false;
+    }
+  });
+
   network.on('youtube:seek', ({ time }) => {
-    if (!isInChillZone || !currentVideo || !iframeLoaded) return;
-    // Reload iframe at the new time
-    youtubeIframe.src = `https://www.youtube.com/embed/${currentVideo.videoId}?autoplay=1&start=${Math.floor(time)}`;
+    if (ytPlayer && ytPlayer.seekTo) {
+      ytPlayer.seekTo(time, true);
+    }
   });
-
-  // Detect when local user seeks — poll the iframe for time changes
-  // (YouTube embed doesn't expose seek events directly, so we track via server timestamp)
-  // When user submits a new URL, everyone syncs. For seeking within a video,
-  // add a "Sync" button players can click to broadcast their current position.
-  const syncBtn = document.createElement('button');
-  syncBtn.textContent = '🔄 Sync All';
-  syncBtn.className = 'youtube-sync-btn';
-  syncBtn.title = 'Sync everyone to your current position in the video';
-  syncBtn.addEventListener('click', () => {
-    if (!currentVideo) return;
-    // We can't read iframe time cross-origin, so use elapsed time since video started
-    const elapsed = (Date.now() - currentVideo.startedAt) / 1000;
-    // Ask user for approximate time
-    const input = prompt('Enter the current video time (in seconds) to sync everyone:', Math.floor(elapsed));
-    if (input === null) return;
-    const time = parseInt(input) || 0;
-    network.emit('youtube:seek', { time });
-    // Update our own startedAt to match
-    currentVideo.startedAt = Date.now() - time * 1000;
-  });
-
-  // Insert sync button after the clear button
-  youtubeClear.parentElement.appendChild(syncBtn);
 }
 
 export function enterChillZone() {
   isInChillZone = true;
   youtubeOverlay.classList.add('visible');
-
-  if (currentVideo && currentVideo.videoId) {
-    loadVideo();
-  }
+  if (currentVideo) loadVideo();
 }
 
 export function leaveChillZone() {
   isInChillZone = false;
   youtubeOverlay.classList.remove('visible');
-
-  if (youtubeIframe) {
-    youtubeIframe.src = '';
-    iframeLoaded = false;
-  }
+  destroyPlayer();
 }
 
 function submitUrl() {
@@ -102,33 +150,59 @@ function submitUrl() {
 
 function loadVideo() {
   if (!currentVideo || !currentVideo.videoId) return;
+  if (!apiReady) {
+    // Retry in 500ms
+    setTimeout(loadVideo, 500);
+    return;
+  }
 
   const elapsed = Math.floor((Date.now() - currentVideo.startedAt) / 1000);
   const start = Math.max(0, elapsed);
 
-  youtubeIframe.src = `https://www.youtube.com/embed/${currentVideo.videoId}?autoplay=1&start=${start}`;
-  youtubeIframe.style.display = 'block';
-  youtubeInfo.textContent = currentVideo.setBy ? `Playing — set by ${currentVideo.setBy}` : 'Playing';
-  youtubeClear.style.display = 'inline-block';
-  iframeLoaded = true;
+  // Destroy existing player
+  destroyPlayer();
+
+  // The iframe element must exist as a div for YT.Player to replace
+  playerDiv.style.display = 'block';
+  playerDiv.removeAttribute('src');
+  playerDiv.id = 'youtube-iframe';
+
+  // YT.Player needs a div, not an iframe — create a fresh div
+  const container = playerDiv.parentElement;
+  const newDiv = document.createElement('div');
+  newDiv.id = 'yt-player-target';
+  newDiv.style.width = '100%';
+  newDiv.style.height = '225px';
+  container.insertBefore(newDiv, controlsDiv);
+  playerDiv.style.display = 'none';
+
+  ytPlayer = new YT.Player('yt-player-target', {
+    videoId: currentVideo.videoId,
+    playerVars: {
+      autoplay: 1,
+      start: start,
+      controls: 0, // hide YT controls, we have our own
+      modestbranding: 1,
+      rel: 0,
+    },
+    events: {
+      onReady: () => {
+        isPaused = false;
+        controlsDiv.style.display = 'flex';
+      },
+    },
+  });
 }
 
-function updateDisplay() {
-  if (!currentVideo || !currentVideo.videoId) {
-    youtubeIframe.src = '';
-    youtubeIframe.style.display = 'none';
-    youtubeInfo.textContent = 'No video playing. Paste a YouTube URL below!';
-    youtubeClear.style.display = 'none';
-    iframeLoaded = false;
-    return;
+function destroyPlayer() {
+  if (ytPlayer && ytPlayer.destroy) {
+    try { ytPlayer.destroy(); } catch {}
+    ytPlayer = null;
   }
-
-  if (isInChillZone) {
-    loadVideo();
-  } else {
-    youtubeInfo.textContent = currentVideo.setBy ? `Playing — set by ${currentVideo.setBy}` : 'Playing';
-    youtubeClear.style.display = 'inline-block';
-  }
+  // Remove the target div if it exists
+  const target = document.getElementById('yt-player-target');
+  if (target) target.remove();
+  isPaused = false;
 }
 
 function parseYouTubeUrl(url) {
@@ -138,7 +212,6 @@ function parseYouTubeUrl(url) {
     /(?:youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/,
     /(?:youtube\.com\/shorts\/)([a-zA-Z0-9_-]{11})/,
   ];
-
   for (const pattern of patterns) {
     const match = url.match(pattern);
     if (match) return match[1];
