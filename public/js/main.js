@@ -10,6 +10,7 @@ import * as network from './network.js';
 import { RemotePlayer } from './network.js';
 import { drawCharacter } from './characters.js';
 import { initBoard, openBoard, closeBoard, loadBoard, isOpen_ as isBoardOpen } from './board.js';
+import { initPets, handlePetCommand, PET_TYPES } from './pets.js';
 
 let localPlayer = null;
 const remotePlayers = new Map();
@@ -21,14 +22,37 @@ const chatSidebar = document.getElementById('chat-sidebar');
 const usernameInput = document.getElementById('username-input');
 const joinBtn = document.getElementById('join-btn');
 
-// Customization state
-let appearance = {
+// Customization state — load from localStorage if available
+const SAVE_KEY = 'rgteamspeak_prefs';
+let appearance = loadPreferences().appearance || {
   skinTone: SKIN_TONES[0],
   hairStyle: 'short',
   hairColor: HAIR_COLORS[0],
   shirtColor: SHIRT_COLORS[5],
   pantsColor: PANTS_COLORS[0],
 };
+
+// Load saved username
+const savedPrefs = loadPreferences();
+if (savedPrefs.username) {
+  usernameInput.value = savedPrefs.username;
+}
+
+function loadPreferences() {
+  try {
+    const data = localStorage.getItem(SAVE_KEY);
+    return data ? JSON.parse(data) : {};
+  } catch { return {}; }
+}
+
+function savePreferences() {
+  try {
+    localStorage.setItem(SAVE_KEY, JSON.stringify({
+      username: usernameInput.value.trim(),
+      appearance: { ...appearance },
+    }));
+  } catch { /* storage full or disabled */ }
+}
 
 function buildCustomization() {
   buildPalette('skin-options', SKIN_TONES, 'skinTone');
@@ -78,12 +102,14 @@ function updatePreview() {
   const ctx = canvas.getContext('2d');
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   drawCharacter(ctx, canvas.width / 2, canvas.height - 10, appearance, 'down', false, 0, '', {});
+  savePreferences();
 }
 
 // === Join Button ===
 joinBtn.addEventListener('click', () => {
   const username = usernameInput.value.trim();
   if (username.length < 1 || username.length > 20) return;
+  savePreferences();
   startApp(username);
 });
 
@@ -96,37 +122,43 @@ function startApp(username) {
   gameContainer.style.display = 'flex';
   chatSidebar.style.display = 'flex';
 
-  network.connect();
-
-  network.emit('auth', { username, appearance });
+  // Register ALL handlers BEFORE connecting
+  network.on('_connect', () => {
+    network.emit('auth', { username, appearance });
+  });
 
   network.on('auth:ok', (data) => {
-    localPlayer = new Player(data.x || SPAWN_X, data.y || SPAWN_Y, appearance);
-    localPlayer.username = username;
-    localPlayer.status = { inMeeting: false, muted: false };
-    localPlayer.workStatus = null;
+    try {
+      localPlayer = new Player(data.x || SPAWN_X, data.y || SPAWN_Y, appearance);
+      localPlayer.username = username;
+      localPlayer.status = { inMeeting: false, muted: false };
+      localPlayer.workStatus = null;
 
-    for (const p of (data.players || [])) {
-      remotePlayers.set(p.id, new RemotePlayer(p));
+      for (const p of (data.players || [])) {
+        remotePlayers.set(p.id, new RemotePlayer(p));
+      }
+
+      const canvas = document.getElementById('game-canvas');
+      initGame(canvas, localPlayer, remotePlayers);
+      initChat();
+      initVoice();
+      initScreenShare();
+      initYouTube();
+      initBoard();
+      initPets();
+      if (data.planningBoard) loadBoard(data.planningBoard);
+      setupZoneCallbacks();
+      setupMeetingControls();
+      setupNetworkHandlers();
+      setupStatusPanel();
+      setupKnockUI();
+      setupGameCallbacks();
+      setupOnlineHud();
+      setupChatMinimize();
+      setupFurnitureMenu();
+    } catch (err) {
+      console.error('AUTH:OK HANDLER ERROR:', err);
     }
-
-    const canvas = document.getElementById('game-canvas');
-    initGame(canvas, localPlayer, remotePlayers);
-    initChat();
-    initVoice();
-    initScreenShare();
-    initYouTube();
-    initBoard();
-    if (data.planningBoard) loadBoard(data.planningBoard);
-    setupZoneCallbacks();
-    setupMeetingControls();
-    setupNetworkHandlers();
-    setupStatusPanel();
-    setupKnockUI();
-    setupGameCallbacks();
-    setupOnlineHud();
-    setupChatMinimize();
-    setupFurnitureMenu();
   });
 
   network.on('auth:error', (data) => {
@@ -135,6 +167,9 @@ function startApp(username) {
     chatSidebar.style.display = 'none';
     alert(data.message || 'Failed to join');
   });
+
+  // Now connect (handlers are registered, so _connect will fire auth)
+  network.connect();
 }
 
 // === Network Handlers ===
@@ -790,6 +825,20 @@ function setupFurnitureMenu() {
     if (playerId === network.getSocketId() && localPlayer) {
       localPlayer.officeFurniture = furniture;
     }
+  });
+
+  // Pet placement buttons
+  const petButtons = document.querySelectorAll('.pet-btn');
+  petButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const petType = btn.dataset.pet;
+      const currentZone = getCurrentZone();
+      if (!currentZone || currentZone.type !== ZONE_TYPES.OFFICE) {
+        return; // Can only place pets in offices
+      }
+      const petName = prompt('Name your pet:') || 'Buddy';
+      network.emit('pet:place', { type: petType, name: petName, zone: currentZone.id });
+    });
   });
 }
 

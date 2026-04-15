@@ -2,8 +2,9 @@ import { drawMap, drawZoneLabels, isBoardNearby, ZONES_PX } from './map.js';
 import { drawCharacter } from './characters.js';
 import { Camera } from './camera.js';
 import { checkZone, getCurrentZone } from './zones.js';
-import { sendPosition } from './network.js';
+import { sendPosition, emit } from './network.js';
 import { ZONE_TYPES, TILE_SIZE } from './constants.js';
+import { updatePets, drawPets, getNearbyPet } from './pets.js';
 
 let canvas, ctx;
 let camera;
@@ -36,19 +37,21 @@ export function initGame(canvasEl, player, remotes) {
   remotePlayers = remotes;
   joinedAt = Date.now();
 
-  resizeCanvas();
-  camera = new Camera(canvas.width, canvas.height);
-  camera.x = localPlayer.x - camera.w / 2;
-  camera.y = localPlayer.y - camera.h / 2;
-  camera.targetX = camera.x;
-  camera.targetY = camera.y;
-
   window.addEventListener('resize', resizeCanvas);
   window.addEventListener('keydown', onKeyDown);
   window.addEventListener('keyup', onKeyUp);
 
-  lastTime = performance.now();
-  requestAnimationFrame(gameLoop);
+  // Delay first frame to let the DOM layout settle (game container just became visible)
+  requestAnimationFrame(() => {
+    resizeCanvas();
+    camera = new Camera(canvas.width, canvas.height);
+    camera.x = localPlayer.x - camera.w / 2;
+    camera.y = localPlayer.y - camera.h / 2;
+    camera.targetX = camera.x;
+    camera.targetY = camera.y;
+    lastTime = performance.now();
+    requestAnimationFrame(gameLoop);
+  });
 }
 
 export function setChatFocused(focused) { chatFocused = focused; }
@@ -72,6 +75,12 @@ function onKeyDown(e) {
     onKeyAction('interact');
     e.preventDefault();
   }
+  if (key === 'f' && localPlayer) {
+    const pet = getNearbyPet(localPlayer.x, localPlayer.y);
+    if (pet) {
+      emit('pet:pet-it', { petId: pet.id });
+    }
+  }
 }
 
 function onKeyUp(e) {
@@ -80,6 +89,7 @@ function onKeyUp(e) {
 }
 
 function gameLoop(timestamp) {
+  try {
   const dt = timestamp - lastTime;
   lastTime = timestamp;
 
@@ -91,8 +101,14 @@ function gameLoop(timestamp) {
 
   checkZone(localPlayer.x, localPlayer.y);
   sendPosition(localPlayer.x, localPlayer.y, localPlayer.direction, localPlayer.isMoving);
+  // Expose for chat pet commands
+  window._playerX = localPlayer.x;
+  window._playerY = localPlayer.y;
 
   for (const rp of remotePlayers.values()) { rp.interpolate(dt); }
+
+  // Update pets
+  updatePets(dt);
 
   const nearBoard = isBoardNearby(localPlayer.x, localPlayer.y);
   if (onBoardProximity) onBoardProximity(nearBoard);
@@ -108,6 +124,7 @@ function gameLoop(timestamp) {
   drawMap(ctx, camera);
   drawZoneLabels(ctx, camera);
   drawPlacedFurniture(ctx, camera);
+  drawPets(ctx, camera);
 
   const allChars = [];
 
@@ -162,6 +179,24 @@ function gameLoop(timestamp) {
   drawSessionTimer(ctx);
   drawInteractHint(ctx, nearBoard);
 
+  // Pet hint
+  const nearPet = getNearbyPet(localPlayer.x, localPlayer.y);
+  if (nearPet) {
+    ctx.font = 'bold 11px monospace';
+    ctx.textAlign = 'center';
+    const text = `Press F to pet ${nearPet.name}`;
+    const tw = ctx.measureText(text).width;
+    const cx = canvas.width / 2;
+    const cy = canvas.height - 30;
+    ctx.fillStyle = 'rgba(0,0,0,0.6)';
+    ctx.fillRect(cx - tw / 2 - 10, cy - 11, tw + 20, 20);
+    ctx.fillStyle = '#fff';
+    ctx.fillText(text, cx, cy + 2);
+  }
+
+  } catch(err) {
+    console.error('GAME LOOP ERROR:', err);
+  }
   requestAnimationFrame(gameLoop);
 }
 

@@ -22,6 +22,7 @@ let screenSharer = null;         // socketId of current screen sharer
 let youtubeState = null;         // { url, videoId, startedAt, setBy }
 let serverRunning = false;
 let planningBoard = [];          // [{ id, assignee, task, duration, column, color }]
+const officePets = new Map();    // petId -> { id, type, name, x, y, ownerId, zone }
 
 const SPAWN_X = 25 * 32;
 const SPAWN_Y = 8 * 32;
@@ -90,6 +91,9 @@ io.on('connection', (socket) => {
 
     // Send chat history
     socket.emit('chat:history', { messages: chatHistory });
+
+    // Send existing pets
+    socket.emit('pet:sync', { allPets: [...officePets.values()] });
 
     // Notify others
     socket.broadcast.emit('player:join', player);
@@ -300,6 +304,62 @@ io.on('connection', (socket) => {
     io.emit('board:sync', { board: planningBoard });
   });
 
+  // --- Pets ---
+  socket.on('pet:place', ({ type, name, zone }) => {
+    const player = players.get(socket.id);
+    if (!player) return;
+    // Find the zone to get spawn coords
+    const zoneData = getZoneBounds(zone);
+    if (!zoneData) return;
+
+    const pet = {
+      id: crypto.randomUUID(),
+      type: type || 'dog_golden',
+      name: (name || 'Dog').slice(0, 20),
+      x: zoneData.cx,
+      y: zoneData.cy,
+      ownerId: socket.id,
+      zone: zone,
+    };
+    officePets.set(pet.id, pet);
+    io.emit('pet:spawn', pet);
+  });
+
+  socket.on('pet:remove-pet', ({ petId }) => {
+    const pet = officePets.get(petId);
+    if (!pet || pet.ownerId !== socket.id) return;
+    officePets.delete(petId);
+    io.emit('pet:remove', { petId });
+  });
+
+  socket.on('pet:pet-it', ({ petId }) => {
+    if (!officePets.has(petId)) return;
+    io.emit('pet:heart', { petId });
+  });
+
+  socket.on('pet:command', ({ petId, command }) => {
+    const pet = officePets.get(petId);
+    if (!pet) return;
+
+    if (command === 'sit' || command === 'spin' || command === 'bark' || command === 'goodboy') {
+      io.emit('pet:action', { petId, action: command });
+      if (command === 'goodboy') {
+        io.emit('pet:heart', { petId });
+      }
+    } else if (command === 'come') {
+      // Move pet to the player who issued the command
+      const player = players.get(socket.id);
+      if (player) {
+        pet.x = player.x + 20;
+        pet.y = player.y + 20;
+        io.emit('pet:update', { petId, x: pet.x, y: pet.y, action: 'walk' });
+      }
+    }
+  });
+
+  // Pet wander timer — move pets randomly within their zone
+  // (handled per-socket but only needs to run once, using setInterval on server)
+
   // --- Online Players List ---
   socket.on('players:list', () => {
     const list = [];
@@ -416,6 +476,32 @@ function getState() {
   }
   return { running: serverRunning, players: userList, playerCount: players.size };
 }
+
+// Zone bounds helper for pet spawning
+const ZONE_BOUNDS = {
+  henrik: { x: 5 * 32, y: 21 * 32, w: 8 * 32, h: 6 * 32 },
+  alice:  { x: 16 * 32, y: 21 * 32, w: 8 * 32, h: 6 * 32 },
+  leo:    { x: 27 * 32, y: 21 * 32, w: 8 * 32, h: 6 * 32 },
+};
+
+function getZoneBounds(zoneId) {
+  const z = ZONE_BOUNDS[zoneId];
+  if (!z) return null;
+  return { ...z, cx: z.x + z.w / 2, cy: z.y + z.h / 2 };
+}
+
+// Pet wander — move pets randomly every 3-6 seconds
+setInterval(() => {
+  for (const pet of officePets.values()) {
+    const z = ZONE_BOUNDS[pet.zone];
+    if (!z) continue;
+    // Random position within the zone (with margin)
+    const margin = 40;
+    pet.x = z.x + margin + Math.random() * (z.w - margin * 2);
+    pet.y = z.y + margin + Math.random() * (z.h - margin * 2);
+    io.emit('pet:update', { petId: pet.id, x: pet.x, y: pet.y, action: 'walk' });
+  }
+}, 4000 + Math.random() * 2000);
 
 module.exports = { startServer, stopServer, getState };
 

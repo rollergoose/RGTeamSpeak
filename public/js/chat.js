@@ -1,5 +1,6 @@
 import * as network from './network.js';
 import { setChatFocused } from './game.js';
+import { handlePetCommand } from './pets.js';
 
 let chatMessages, chatInput, chatSend;
 
@@ -50,6 +51,18 @@ export function initChat() {
 function sendMessage() {
   const text = chatInput.value.trim();
   if (!text) return;
+
+  // Check for pet commands
+  if (text.startsWith('/')) {
+    // We need the player position — get it from a global or pass it in
+    // For now, just emit the command and let pets.js handle it
+    const handled = handlePetCommand(text, window._playerX || 0, window._playerY || 0);
+    if (handled) {
+      chatInput.value = '';
+      return;
+    }
+  }
+
   network.emit('chat:send', { message: text });
   chatInput.value = '';
 }
