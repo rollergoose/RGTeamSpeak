@@ -1,6 +1,8 @@
 import * as network from './network.js';
 import { setChatFocused } from './game.js';
 import { handlePetCommand } from './pets.js';
+import { getCurrentZone } from './zones.js';
+import { ZONE_TYPES } from './constants.js';
 
 let chatMessages, chatInput, chatSend;
 
@@ -63,13 +65,16 @@ function sendMessage() {
     }
   }
 
-  network.emit('chat:send', { message: text });
+  // If in an office, send as local chat (only people in same office see it)
+  const zone = getCurrentZone();
+  const isOffice = zone && zone.type === ZONE_TYPES.OFFICE;
+  network.emit('chat:send', { message: text, zone: isOffice ? zone.id : null });
   chatInput.value = '';
 }
 
 function appendMessage(msg, prepend = false) {
   const el = document.createElement('div');
-  el.className = 'chat-msg';
+  el.className = 'chat-msg' + (msg.zone ? ' chat-local' : '');
 
   const time = document.createElement('span');
   time.className = 'chat-time';

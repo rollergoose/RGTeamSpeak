@@ -47,6 +47,21 @@
         </div>
       </div>
 
+      <div class="custom-section">
+        <label>Hat <span class="unlock-hint">(unlock with levels)</span></label>
+        <div id="hat-options" class="hair-styles"></div>
+      </div>
+
+      <div class="custom-section">
+        <label>Face <span class="unlock-hint">(unlock with levels)</span></label>
+        <div id="face-options" class="hair-styles"></div>
+      </div>
+
+      <div class="custom-section">
+        <label>Outfit <span class="unlock-hint">(unlock with levels)</span></label>
+        <div id="outfit-options" class="hair-styles"></div>
+      </div>
+
       <button id="join-btn">Enter Office</button>
     </div>
   </div>
@@ -79,15 +94,25 @@
       <div class="screenshare-resize-handle" id="screenshare-resize"></div>
     </div>
 
-    <!-- YouTube overlay (chill zone) -->
+    <!-- YouTube overlay (chill zone) — draggable + resizable -->
     <div id="youtube-overlay">
-      <div class="youtube-header">
+      <div class="youtube-header" id="youtube-drag-handle">
         <span>📺 TV Area</span>
-        <button id="youtube-clear">Turn Off</button>
+        <div>
+          <button id="youtube-clear">Turn Off</button>
+        </div>
       </div>
       <iframe id="youtube-iframe" allow="autoplay; encrypted-media" allowfullscreen style="display:none"></iframe>
+      <div id="youtube-controls" style="display:none">
+        <button id="yt-pause" class="yt-ctrl" title="Pause">⏸</button>
+        <button id="yt-play" class="yt-ctrl" title="Play">▶</button>
+        <button id="yt-back" class="yt-ctrl" title="Rewind 10s">⏪</button>
+        <button id="yt-fwd" class="yt-ctrl" title="Forward 10s">⏩</button>
+        <span id="yt-time" class="yt-time">0:00</span>
+      </div>
       <p id="youtube-info">No video playing. Paste a YouTube URL below!</p>
       <input type="text" id="youtube-input" placeholder="Paste YouTube URL...">
+      <div class="screenshare-resize-handle" id="youtube-resize"></div>
     </div>
 
     <!-- Status panel (office zones) -->
@@ -109,7 +134,12 @@
     <!-- Knock area (near offices) -->
     <div id="knock-area">
       <span id="knock-target-name">Knock</span>
-      <button id="knock-btn" class="ctrl-btn">🚪 Knock</button>
+      <span id="knock-lock-status"></span>
+      <div style="display:flex; gap:6px;">
+        <button id="knock-btn" class="ctrl-btn">🚪 Knock</button>
+        <button id="notice-open-btn" class="ctrl-btn">📌 Notice Board</button>
+        <button id="lock-toggle-btn" class="ctrl-btn">🔒 Lock</button>
+      </div>
       <div id="knock-overlay">
         <input type="text" id="knock-input" placeholder="Message (e.g. meeting in 5)" maxlength="200">
         <button id="knock-send-btn" class="ctrl-btn">Send</button>
@@ -158,6 +188,20 @@
         <button class="furn-btn" data-type="clock" title="Clock">🕐</button>
         <button class="furn-btn" data-type="trophy" title="Trophy">🏆</button>
         <button class="furn-btn" data-type="sign" title="Sign">🪧</button>
+        <button class="furn-btn" data-type="console" title="Game Console">🎮</button>
+        <button class="furn-btn" data-type="easel" title="Canvas Easel">🎨</button>
+        <button class="furn-btn" data-type="pinball" title="Pinball Machine">🕹️</button>
+        <button class="furn-btn" data-type="fridge" title="Monster Energy Fridge">🧊</button>
+        <button class="furn-btn" data-type="mic" title="Recording Mic + Booth">🎙️</button>
+        <button class="furn-btn" data-type="monitor" title="Extra Monitor">🖥️</button>
+        <button class="furn-btn" data-type="server" title="Server Rack">⬛</button>
+        <button class="furn-btn" data-type="beanbag" title="Bean Bag">🫘</button>
+        <button class="furn-btn" data-type="figurine" title="Action Figure">🧸</button>
+        <button class="furn-btn" data-type="headphones" title="Headphone Stand">🎧</button>
+        <button class="furn-btn" data-type="keyboard" title="Mech Keyboard">⌨️</button>
+        <button class="furn-btn" data-type="corkboard" title="Cork Board">📌</button>
+        <button class="furn-btn" data-type="trashcan" title="Trash Can">🗑️</button>
+        <button class="furn-btn" data-type="fan" title="Desk Fan">💨</button>
       </div>
       <div class="furniture-menu-header" style="padding-top:4px">
         <span>🐕 Pets</span>
@@ -185,6 +229,27 @@
       </div>
     </div>
 
+    <!-- Notice Board overlay (outside offices) -->
+    <div id="notice-board-overlay">
+      <div class="notice-header">
+        <span id="notice-title">📌 Notice Board</span>
+        <button id="notice-close" class="ctrl-btn">✕</button>
+      </div>
+      <div id="notice-notes" class="notice-notes"></div>
+      <div class="notice-add-form">
+        <input type="text" id="notice-msg" placeholder="Message / task..." maxlength="200">
+        <input type="text" id="notice-link" placeholder="Link (optional)" maxlength="500">
+        <div class="notice-form-row">
+          <select id="notice-status">
+            <option value="feedback">📝 Feedback</option>
+            <option value="done">✅ Done</option>
+            <option value="again">🔄 Again</option>
+          </select>
+          <button id="notice-add-btn" class="ctrl-btn">Post Note</button>
+        </div>
+      </div>
+    </div>
+
     <!-- Planning Board overlay -->
     <div id="board-overlay">
       <div class="board-header">
@@ -209,6 +274,48 @@
     </div>
   </div>
 
+  <!-- Player stats button -->
+  <button id="stats-btn" title="Player Stats">🧑</button>
+
+  <!-- Player stats panel -->
+  <div id="stats-panel" style="display:none">
+    <div class="stats-header">
+      <span>🧑 Player Stats</span>
+      <button id="stats-close" class="ctrl-btn" style="padding:2px 8px">✕</button>
+    </div>
+    <div id="stats-content" class="stats-content">
+      <div class="stats-player-level">
+        Player Level: <span id="stats-player-level">0</span> / 50
+      </div>
+      <div class="stats-row">
+        <span>🚶 Explorer</span>
+        <div class="stats-bar"><div class="stats-fill explorer-fill" id="stats-explorer"></div></div>
+        <span class="stats-lvl" id="stats-explorer-lvl">0/10</span>
+      </div>
+      <div class="stats-row">
+        <span>💬 Communicator</span>
+        <div class="stats-bar"><div class="stats-fill communicator-fill" id="stats-communicator"></div></div>
+        <span class="stats-lvl" id="stats-communicator-lvl">0/10</span>
+      </div>
+      <div class="stats-row">
+        <span>📝 Feedback</span>
+        <div class="stats-bar"><div class="stats-fill feedback-fill" id="stats-feedback"></div></div>
+        <span class="stats-lvl" id="stats-feedback-lvl">0/10</span>
+      </div>
+      <div class="stats-row">
+        <span>💭 Chatter</span>
+        <div class="stats-bar"><div class="stats-fill chatter-fill" id="stats-chatter"></div></div>
+        <span class="stats-lvl" id="stats-chatter-lvl">0/10</span>
+      </div>
+      <div class="stats-row">
+        <span>✅ Achiever</span>
+        <div class="stats-bar"><div class="stats-fill achiever-fill" id="stats-achiever"></div></div>
+        <span class="stats-lvl" id="stats-achiever-lvl">0/10</span>
+      </div>
+      <div class="stats-detail" id="stats-detail"></div>
+    </div>
+  </div>
+
   <!-- Chat toggle button (visible when chat is minimized) -->
   <button id="chat-toggle-btn" style="display:none">
     💬
@@ -216,7 +323,8 @@
   </button>
 
   <!-- === CHAT SIDEBAR === -->
-  <div id="chat-sidebar" style="display:none">
+  <div id="chat-sidebar" style="display:none; position:relative;">
+    <div class="chat-resize-handle" id="chat-resize-handle"></div>
     <div class="chat-header">
       <img src="/assets/logo.png" alt="Rollergoose" class="chat-logo">
       <span>Chat</span>
@@ -226,6 +334,19 @@
     <div class="chat-input-bar">
       <input type="text" id="chat-input" placeholder="Type a message..." maxlength="500">
       <button id="chat-send">Send</button>
+    </div>
+  </div>
+
+    <!-- Level Up popup -->
+    <div id="levelup-popup" style="display:none">
+      <div class="levelup-content">
+        <div class="levelup-confetti" id="levelup-confetti"></div>
+        <div class="levelup-icon">⭐</div>
+        <div class="levelup-title">LEVEL UP!</div>
+        <div class="levelup-detail" id="levelup-detail"></div>
+        <div class="levelup-level" id="levelup-level"></div>
+        <button class="levelup-dismiss" onclick="document.getElementById('levelup-popup').style.display='none'">Awesome!</button>
+      </div>
     </div>
   </div>
 

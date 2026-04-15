@@ -1,4 +1,4 @@
-import { SKIN_TONES, HAIR_COLORS, SHIRT_COLORS, PANTS_COLORS, HAIR_STYLES, SPAWN_X, SPAWN_Y, ZONE_TYPES, BANDWIDTH_OPTIONS, DEFAULT_BANDWIDTH } from './constants.js';
+import { SKIN_TONES, HAIR_COLORS, SHIRT_COLORS, PANTS_COLORS, HAIR_STYLES, SPAWN_X, SPAWN_Y, ZONE_TYPES, BANDWIDTH_OPTIONS, DEFAULT_BANDWIDTH, HATS, OUTFITS, FACES, LEVEL_CATEGORIES } from './constants.js';
 import { Player } from './player.js';
 import { initGame, setCallbacks, setInputFocused, getCamera } from './game.js';
 import { initChat } from './chat.js';
@@ -30,7 +30,16 @@ let appearance = loadPreferences().appearance || {
   hairColor: HAIR_COLORS[0],
   shirtColor: SHIRT_COLORS[5],
   pantsColor: PANTS_COLORS[0],
+  hat: 'none',
+  face: 'none',
+  outfit: 'none',
 };
+// Ensure cosmetic fields exist (for old saves)
+if (!appearance.hat) appearance.hat = 'none';
+if (!appearance.face) appearance.face = 'none';
+if (!appearance.outfit) appearance.outfit = 'none';
+
+let playerMaxLevel = 0; // highest level across all categories
 
 // Load saved username
 const savedPrefs = loadPreferences();
@@ -60,7 +69,35 @@ function buildCustomization() {
   buildPalette('shirt-options', SHIRT_COLORS, 'shirtColor');
   buildPalette('pants-options', PANTS_COLORS, 'pantsColor');
   buildHairStyles();
+  buildCosmeticOptions('hat-options', HATS, 'hat');
+  buildCosmeticOptions('face-options', FACES, 'face');
+  buildCosmeticOptions('outfit-options', OUTFITS, 'outfit');
   updatePreview();
+}
+
+function buildCosmeticOptions(containerId, items, key) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  container.innerHTML = '';
+  // Load saved max level
+  const saved = loadPreferences();
+  const maxLvl = saved.maxLevel || playerMaxLevel || 0;
+
+  items.forEach(item => {
+    const btn = document.createElement('button');
+    const locked = item.level > maxLvl;
+    btn.className = 'hair-style-btn' + (appearance[key] === item.id ? ' selected' : '') + (locked ? ' locked' : '');
+    btn.textContent = item.name;
+    btn.title = locked ? `Unlock at level ${item.level}` : item.name;
+    btn.addEventListener('click', () => {
+      if (locked) return;
+      appearance[key] = item.id;
+      container.querySelectorAll('.hair-style-btn').forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+      updatePreview();
+    });
+    container.appendChild(btn);
+  });
 }
 
 function buildPalette(containerId, colors, key) {
@@ -154,6 +191,9 @@ async function startApp(username) {
       setupOnlineHud();
       setupChatMinimize();
       setupFurnitureMenu();
+      setupOfficeLocks();
+      setupLevelSystem();
+      uploadSavedFurniture();
     } catch (err) {
       console.error('AUTH:OK HANDLER ERROR:', err);
     }
@@ -225,8 +265,8 @@ function setupZoneCallbacks() {
       meetingControls.classList.add('visible');
       localPlayer.status.inMeeting = true;
       joinVoice();
-      // Archives accessible from meeting room too
       showArchives();
+      startMeetingTimer();
     }
 
     if (zone.type === ZONE_TYPES.CHILL) {
@@ -251,6 +291,7 @@ function setupZoneCallbacks() {
       leaveVoice();
       if (getIsSharing()) stopScreenShare();
       hideArchives();
+      stopMeetingTimer();
     }
 
     if (zone.type === ZONE_TYPES.CHILL) {
@@ -353,6 +394,13 @@ function setupKnockUI() {
   const knockInput = document.getElementById('knock-input');
   const knockSendBtn = document.getElementById('knock-send-btn');
   const knockOverlay = document.getElementById('knock-overlay');
+  const noticeOpenBtn = document.getElementById('notice-open-btn');
+
+  noticeOpenBtn.addEventListener('click', () => {
+    if (currentKnockTarget) {
+      openNoticeBoard(currentKnockTarget.zoneId, currentKnockTarget.zoneName);
+    }
+  });
 
   knockBtn.addEventListener('click', () => {
     knockOverlay.classList.toggle('visible');
@@ -375,6 +423,13 @@ function setupKnockUI() {
     network.emit('knock:send', { targetZoneId: currentKnockTarget.zoneId, message });
     knockInput.value = '';
     knockOverlay.classList.remove('visible');
+
+    // Show sent confirmation
+    const confirm = document.createElement('div');
+    confirm.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(46,204,113,0.9);color:#fff;padding:12px 24px;border-radius:10px;font-weight:600;font-size:14px;z-index:999;pointer-events:none;animation:knockBounce 0.4s ease;';
+    confirm.textContent = `✅ Knock sent to ${currentKnockTarget.zoneName}!`;
+    document.body.appendChild(confirm);
+    setTimeout(() => confirm.remove(), 2000);
   });
 }
 
@@ -513,9 +568,12 @@ function setupGameCallbacks() {
     knockProximity: (target) => {
       currentKnockTarget = target;
       const knockArea = document.getElementById('knock-area');
+      const knockBtn = document.getElementById('knock-btn');
       if (target) {
         knockArea.classList.add('visible');
-        document.getElementById('knock-target-name').textContent = `Knock on ${target.zoneName}`;
+        document.getElementById('knock-target-name').textContent = target.zoneName;
+        knockBtn.style.display = target.occupant ? 'inline-block' : 'none';
+        updateLockUI();
       } else {
         knockArea.classList.remove('visible');
         document.getElementById('knock-overlay').classList.remove('visible');
@@ -530,7 +588,14 @@ function setupGameCallbacks() {
         }
       }
     },
-    speechBubbles: () => speechBubbles,
+    speechBubbles: () => {
+      // Clean expired bubbles
+      const now = Date.now();
+      for (const [key, val] of speechBubbles) {
+        if (now > val.expiresAt) speechBubbles.delete(key);
+      }
+      return speechBubbles;
+    },
   });
 }
 
@@ -557,6 +622,25 @@ function showArchives() {
 
   if (!archivesInitialized) {
     archivesInitialized = true;
+
+    // Make archives draggable by header
+    const header = panel.querySelector('.archives-header');
+    let dragging = false, dragX = 0, dragY = 0;
+    header.style.cursor = 'grab';
+    header.addEventListener('mousedown', (e) => {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON') return;
+      dragging = true;
+      dragX = e.clientX - panel.offsetLeft;
+      dragY = e.clientY - panel.offsetTop;
+      header.style.cursor = 'grabbing';
+    });
+    document.addEventListener('mousemove', (e) => {
+      if (!dragging) return;
+      panel.style.left = (e.clientX - dragX) + 'px';
+      panel.style.top = (e.clientY - dragY) + 'px';
+      panel.style.right = 'auto';
+    });
+    document.addEventListener('mouseup', () => { dragging = false; header.style.cursor = 'grab'; });
     const input = document.getElementById('archives-input');
     const sendBtn = document.getElementById('archives-send');
     const messages = document.getElementById('archives-messages');
@@ -632,6 +716,200 @@ function appendArchiveMessage(msg, prepend = false) {
     container.appendChild(el);
     container.scrollTop = container.scrollHeight;
   }
+}
+
+// === Notice Board UI ===
+let currentNoticeOffice = null;
+
+function setupNoticeBoard() {
+  const overlay = document.getElementById('notice-board-overlay');
+  const title = document.getElementById('notice-title');
+  const notesContainer = document.getElementById('notice-notes');
+  const closeBtn = document.getElementById('notice-close');
+  const addBtn = document.getElementById('notice-add-btn');
+  const msgInput = document.getElementById('notice-msg');
+  const linkInput = document.getElementById('notice-link');
+  const statusSelect = document.getElementById('notice-status');
+
+  // Stop key propagation on inputs
+  [msgInput, linkInput].forEach(el => {
+    el.addEventListener('keydown', e => e.stopPropagation());
+    el.addEventListener('focus', () => setInputFocused(true));
+    el.addEventListener('blur', () => setInputFocused(false));
+  });
+
+  closeBtn.addEventListener('click', () => {
+    overlay.classList.remove('visible');
+    currentNoticeOffice = null;
+  });
+
+  addBtn.addEventListener('click', () => {
+    if (!currentNoticeOffice) return;
+    const message = msgInput.value.trim();
+    if (!message) return;
+    network.emit('notice:add', {
+      officeId: currentNoticeOffice,
+      message,
+      link: linkInput.value.trim(),
+      status: statusSelect.value,
+    });
+    msgInput.value = '';
+    linkInput.value = '';
+    trackFeedback();
+  });
+
+  network.on('notice:sync', ({ officeId, notes }) => {
+    if (officeId !== currentNoticeOffice) return;
+    renderNotes(notes);
+  });
+
+  function renderNotes(notes) {
+    notesContainer.innerHTML = '';
+    if (notes.length === 0) {
+      notesContainer.innerHTML = '<div style="color:#667;text-align:center;padding:20px;font-size:12px;font-style:italic">No notes posted yet</div>';
+      return;
+    }
+    for (const note of notes) {
+      const el = document.createElement('div');
+      el.className = 'notice-note status-' + note.status;
+      const statusEmoji = note.status === 'done' ? '✅' : note.status === 'again' ? '🔄' : '📝';
+      el.innerHTML = `
+        <div class="notice-note-header">
+          <span class="notice-note-author" style="color:${escapeHtml(note.color)}">${escapeHtml(note.author)}</span>
+          <span class="notice-note-status">${statusEmoji} ${note.status}</span>
+        </div>
+        <div class="notice-note-msg">${escapeHtml(note.message)}</div>
+        ${note.link ? `<a class="notice-note-link" href="${escapeHtml(note.link)}" target="_blank">${escapeHtml(note.link)}</a>` : ''}
+        <div class="notice-note-actions">
+          <button data-action="feedback" data-id="${note.id}">📝 Feedback</button>
+          <button data-action="done" data-id="${note.id}">✅ Done</button>
+          <button data-action="again" data-id="${note.id}">🔄 Again</button>
+          <button data-action="move" data-id="${note.id}">📤 Move</button>
+          <button data-action="remove" data-id="${note.id}">🗑️</button>
+        </div>
+      `;
+
+      el.querySelectorAll('.notice-note-actions button').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const action = btn.dataset.action;
+          const noteId = btn.dataset.id;
+          if (action === 'remove') {
+            network.emit('notice:remove', { officeId: currentNoticeOffice, noteId });
+          } else if (action === 'move') {
+            const offices = ['henrik', 'alice', 'leo'].filter(o => o !== currentNoticeOffice);
+            const target = prompt('Move to which office? (' + offices.join(', ') + ')');
+            if (target && offices.includes(target)) {
+              const newNote = prompt('Add a note (optional):') || '';
+              network.emit('notice:move', { fromOffice: currentNoticeOffice, toOffice: target, noteId, note: newNote });
+            }
+          } else {
+            network.emit('notice:update', { officeId: currentNoticeOffice, noteId, status: action });
+          }
+        });
+      });
+
+      notesContainer.appendChild(el);
+    }
+  }
+}
+
+function openNoticeBoard(officeId, officeName) {
+  currentNoticeOffice = officeId;
+  document.getElementById('notice-title').textContent = `📌 ${officeName} — Notice Board`;
+  document.getElementById('notice-board-overlay').classList.add('visible');
+  network.emit('notice:get', { officeId });
+}
+
+// === YouTube Controls ===
+function setupYouTubeControls() {
+  const pauseBtn = document.getElementById('yt-pause');
+  const playBtn = document.getElementById('yt-play');
+  const backBtn = document.getElementById('yt-back');
+  const fwdBtn = document.getElementById('yt-fwd');
+  const controls = document.getElementById('youtube-controls');
+  const iframe = document.getElementById('youtube-iframe');
+  const timeDisplay = document.getElementById('yt-time');
+  let ytStartedAt = 0;
+  let ytPaused = false;
+  let ytPausedAt = 0;
+
+  // Track time
+  setInterval(() => {
+    if (!ytStartedAt || ytPaused) return;
+    const elapsed = Math.floor((Date.now() - ytStartedAt) / 1000);
+    const m = Math.floor(elapsed / 60);
+    const s = elapsed % 60;
+    timeDisplay.textContent = `${m}:${s.toString().padStart(2, '0')}`;
+  }, 1000);
+
+  pauseBtn.addEventListener('click', () => {
+    ytPaused = true;
+    ytPausedAt = (Date.now() - ytStartedAt) / 1000;
+    iframe.src = ''; // Stop playback
+    network.emit('youtube:pause', {});
+  });
+
+  playBtn.addEventListener('click', () => {
+    ytPaused = false;
+    const time = ytPausedAt || 0;
+    network.emit('youtube:play', { time });
+  });
+
+  backBtn.addEventListener('click', () => {
+    const elapsed = (Date.now() - ytStartedAt) / 1000;
+    const newTime = Math.max(0, elapsed - 10);
+    network.emit('youtube:seek', { time: newTime });
+  });
+
+  fwdBtn.addEventListener('click', () => {
+    const elapsed = (Date.now() - ytStartedAt) / 1000;
+    network.emit('youtube:seek', { time: elapsed + 10 });
+  });
+
+  network.on('youtube:update', (data) => {
+    ytStartedAt = data.startedAt;
+    ytPaused = false;
+    controls.style.display = 'flex';
+  });
+
+  network.on('youtube:cleared', () => {
+    controls.style.display = 'none';
+    ytStartedAt = 0;
+  });
+
+  network.on('youtube:pause', () => {
+    ytPaused = true;
+    ytPausedAt = (Date.now() - ytStartedAt) / 1000;
+    iframe.src = '';
+  });
+
+  network.on('youtube:play', ({ time }) => {
+    ytPaused = false;
+    ytStartedAt = Date.now() - time * 1000;
+    // Reload with new time
+    const videoId = iframe.src.match(/embed\/([^?]+)/)?.[1];
+    if (videoId) {
+      iframe.src = `https://www.youtube.com/embed/${videoId}?autoplay=1&start=${Math.floor(time)}`;
+    }
+  });
+
+  // Make YouTube overlay draggable
+  const overlay = document.getElementById('youtube-overlay');
+  const handle = document.getElementById('youtube-drag-handle');
+  let dragging = false, dx = 0, dy = 0;
+  handle.addEventListener('mousedown', (e) => {
+    if (e.target.tagName === 'BUTTON') return;
+    dragging = true;
+    dx = e.clientX - overlay.offsetLeft;
+    dy = e.clientY - overlay.offsetTop;
+  });
+  document.addEventListener('mousemove', (e) => {
+    if (!dragging) return;
+    overlay.style.left = (e.clientX - dx) + 'px';
+    overlay.style.top = (e.clientY - dy) + 'px';
+    overlay.style.right = 'auto';
+  });
+  document.addEventListener('mouseup', () => { dragging = false; });
 }
 
 function setupScreenShareWindow() {
@@ -805,6 +1083,21 @@ function setupChatMinimize() {
     badge.style.display = 'none';
   });
 
+  // Chat sidebar resize
+  const resizeHandle = document.getElementById('chat-resize-handle');
+  let isResizingChat = false;
+  resizeHandle.addEventListener('mousedown', (e) => {
+    isResizingChat = true;
+    e.preventDefault();
+  });
+  document.addEventListener('mousemove', (e) => {
+    if (!isResizingChat) return;
+    const newWidth = window.innerWidth - e.clientX;
+    sidebar.style.width = Math.max(200, Math.min(600, newWidth)) + 'px';
+    sidebar.style.minWidth = sidebar.style.width;
+  });
+  document.addEventListener('mouseup', () => { isResizingChat = false; });
+
   // Listen for chat messages to show badge + speech bubble
   network.on('chat:message', (msg) => {
     if (chatMinimized) {
@@ -928,6 +1221,8 @@ function setupFurnitureMenu() {
     if (rp) rp.officeFurniture = furniture;
     if (playerId === network.getSocketId() && localPlayer) {
       localPlayer.officeFurniture = furniture;
+      // Save to localStorage so it persists
+      saveFurnitureLocally(furniture);
     }
   });
 
@@ -954,8 +1249,285 @@ function getCurrentZoneFromZones() {
 // Camera helper for furniture placement
 function getCameraFromGame() { return getCamera(); }
 
+// === Office Locks ===
+let officeLocks = {};
+
+function setupOfficeLocks() {
+  const lockBtn = document.getElementById('lock-toggle-btn');
+  const lockStatus = document.getElementById('knock-lock-status');
+
+  lockBtn.addEventListener('click', () => {
+    if (!currentKnockTarget) return;
+    const officeId = currentKnockTarget.zoneId;
+    const isLocked = officeLocks[officeId]?.locked;
+    if (isLocked) {
+      network.emit('office:unlock', { officeId });
+    } else {
+      network.emit('office:lock', { officeId });
+    }
+  });
+
+  network.on('office:lock-sync', ({ locks }) => {
+    officeLocks = locks;
+    // Update UI if knock area is visible
+    updateLockUI();
+  });
+
+  network.emit('office:get-locks', {});
+}
+
+function updateLockUI() {
+  const lockStatus = document.getElementById('knock-lock-status');
+  const lockBtn = document.getElementById('lock-toggle-btn');
+  if (!currentKnockTarget) return;
+  const lock = officeLocks[currentKnockTarget.zoneId];
+  if (lock && lock.locked) {
+    lockStatus.textContent = `🔒 Busy (${lock.lockedBy})`;
+    lockStatus.className = 'lock-locked';
+    lockBtn.textContent = '🔓 Unlock';
+  } else {
+    lockStatus.textContent = '🔓 Available';
+    lockStatus.className = 'lock-unlocked';
+    lockBtn.textContent = '🔒 Lock';
+  }
+}
+
+// === Player Levels & Step Tracking ===
+let stepCount = 0;
+let lastStepX = 0, lastStepY = 0;
+let meetingSeconds = 0;
+let meetingInterval = null;
+
+// === Furniture localStorage ===
+const FURNITURE_KEY = 'rgteamspeak_furniture';
+
+function saveFurnitureLocally(furniture) {
+  try {
+    localStorage.setItem(FURNITURE_KEY, JSON.stringify(furniture));
+  } catch {}
+}
+
+function loadFurnitureLocally() {
+  try {
+    return JSON.parse(localStorage.getItem(FURNITURE_KEY)) || [];
+  } catch { return []; }
+}
+
+function uploadSavedFurniture() {
+  const saved = loadFurnitureLocally();
+  if (saved.length > 0) {
+    network.emit('furniture:upload', { furniture: saved });
+  }
+}
+
+const STATS_KEY = 'rgteamspeak_stats';
+
+function loadStats() {
+  try {
+    return JSON.parse(localStorage.getItem(STATS_KEY)) || {
+      steps: 0, meetingTime: 0, feedbackGiven: 0, chatMessages: 0, tasksCompleted: 0
+    };
+  } catch {
+    return { steps: 0, meetingTime: 0, feedbackGiven: 0, chatMessages: 0, tasksCompleted: 0 };
+  }
+}
+
+function saveStats(stats) {
+  try { localStorage.setItem(STATS_KEY, JSON.stringify(stats)); } catch {}
+}
+
+function getLevel(stat, perLevel) {
+  return Math.min(10, Math.floor(stat / perLevel));
+}
+
+function getLevels(stats) {
+  const levels = {};
+  for (const cat of LEVEL_CATEGORIES) {
+    levels[cat.id] = getLevel(stats[cat.stat] || 0, cat.perLevel);
+  }
+  return levels;
+}
+
+function getPlayerLevel(levels) {
+  let total = 0;
+  for (const cat of LEVEL_CATEGORIES) {
+    total += levels[cat.id] || 0;
+  }
+  return total; // max 50
+}
+
+let prevLevelsCache = {};
+
+function setupLevelSystem() {
+  const stats = loadStats();
+  prevLevelsCache = getLevels(stats);
+  playerMaxLevel = getPlayerLevel(prevLevelsCache);
+  updateStatsPanel(stats, prevLevelsCache);
+
+  // Track steps
+  setInterval(() => {
+    if (!localPlayer) return;
+    const dx = localPlayer.x - lastStepX;
+    const dy = localPlayer.y - lastStepY;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist > 5) {
+      const s = loadStats();
+      s.steps += Math.floor(dist / 16);
+      lastStepX = localPlayer.x;
+      lastStepY = localPlayer.y;
+      saveStats(s);
+      checkLevelUps(s);
+    }
+  }, 1000);
+
+  // Track chat messages
+  network.on('chat:message', (msg) => {
+    if (msg.username === localPlayer?.username) {
+      const s = loadStats();
+      s.chatMessages = (s.chatMessages || 0) + 1;
+      saveStats(s);
+      checkLevelUps(s);
+    }
+  });
+
+  // Stats button
+  const statsBtn = document.getElementById('stats-btn');
+  const statsPanel = document.getElementById('stats-panel');
+  const statsClose = document.getElementById('stats-close');
+  statsBtn.addEventListener('click', () => {
+    const visible = statsPanel.style.display !== 'none';
+    statsPanel.style.display = visible ? 'none' : 'block';
+    if (!visible) {
+      const s = loadStats();
+      updateStatsPanel(s, getLevels(s));
+    }
+  });
+  statsClose.addEventListener('click', () => { statsPanel.style.display = 'none'; });
+}
+
+// Call this when posting a notice/feedback
+function trackFeedback() {
+  const s = loadStats();
+  s.feedbackGiven = (s.feedbackGiven || 0) + 1;
+  saveStats(s);
+  checkLevelUps(s);
+}
+
+function checkLevelUps(stats) {
+  const newLevels = getLevels(stats);
+  const newPlayerLevel = getPlayerLevel(newLevels);
+
+  // Check each category for level ups
+  for (const cat of LEVEL_CATEGORIES) {
+    const oldLvl = prevLevelsCache[cat.id] || 0;
+    const newLvl = newLevels[cat.id] || 0;
+    if (newLvl > oldLvl) {
+      showLevelUp(cat.name, newLvl);
+    }
+  }
+  prevLevelsCache = newLevels;
+
+  if (newPlayerLevel > playerMaxLevel) {
+    playerMaxLevel = newPlayerLevel;
+    try {
+      const prefs = loadPreferences();
+      prefs.maxLevel = playerMaxLevel;
+      localStorage.setItem(SAVE_KEY, JSON.stringify(prefs));
+    } catch {}
+    buildCosmeticOptions('hat-options', HATS, 'hat');
+    buildCosmeticOptions('face-options', FACES, 'face');
+    buildCosmeticOptions('outfit-options', OUTFITS, 'outfit');
+  }
+
+  updateStatsPanel(stats, newLevels);
+}
+
+function startMeetingTimer() {
+  if (meetingInterval) return;
+  meetingInterval = setInterval(() => {
+    const s = loadStats();
+    s.meetingTime = (s.meetingTime || 0) + 1;
+    saveStats(s);
+    checkLevelUps(s);
+  }, 60000);
+}
+
+function stopMeetingTimer() {
+  if (meetingInterval) { clearInterval(meetingInterval); meetingInterval = null; }
+}
+
+function updateStatsPanel(stats, levels) {
+  for (const cat of LEVEL_CATEGORIES) {
+    const bar = document.getElementById('stats-' + cat.id);
+    const lvl = document.getElementById('stats-' + cat.id + '-lvl');
+    if (bar) bar.style.width = ((levels[cat.id] || 0) / 10 * 100) + '%';
+    if (lvl) lvl.textContent = `${levels[cat.id] || 0}/10`;
+  }
+
+  const plvl = document.getElementById('stats-player-level');
+  if (plvl) plvl.textContent = getPlayerLevel(levels);
+
+  const detail = document.getElementById('stats-detail');
+  if (detail) {
+    detail.textContent = `Steps: ${stats.steps || 0} | Meetings: ${stats.meetingTime || 0}m | Feedback: ${stats.feedbackGiven || 0} | Chats: ${stats.chatMessages || 0} | Tasks: ${stats.tasksCompleted || 0}`;
+  }
+}
+
+function showLevelUp(category, level) {
+  const popup = document.getElementById('levelup-popup');
+  const detail = document.getElementById('levelup-detail');
+  const levelEl = document.getElementById('levelup-level');
+  const confettiEl = document.getElementById('levelup-confetti');
+
+  detail.textContent = category;
+  levelEl.textContent = `Level ${level} / 10`;
+  popup.style.display = 'flex';
+
+  // Play sound
+  playLevelUpSound();
+
+  // Confetti
+  confettiEl.innerHTML = '';
+  const colors = ['#f1c40f', '#e74c3c', '#3498db', '#2ecc71', '#9b59b6', '#e67e22', '#1abc9c'];
+  for (let i = 0; i < 30; i++) {
+    const piece = document.createElement('div');
+    piece.className = 'confetti-piece';
+    piece.style.left = Math.random() * 100 + '%';
+    piece.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+    piece.style.animationDelay = Math.random() * 0.5 + 's';
+    piece.style.width = (4 + Math.random() * 8) + 'px';
+    piece.style.height = (4 + Math.random() * 8) + 'px';
+    confettiEl.appendChild(piece);
+  }
+
+  // Auto dismiss after 5s
+  setTimeout(() => { popup.style.display = 'none'; }, 5000);
+}
+
+function playLevelUpSound() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    // Triumphant ascending notes
+    const notes = [523, 659, 784, 1047]; // C5, E5, G5, C6
+    notes.forEach((freq, i) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, ctx.currentTime + i * 0.15);
+      gain.gain.setValueAtTime(0.3, ctx.currentTime + i * 0.15);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + i * 0.15 + 0.4);
+      osc.start(ctx.currentTime + i * 0.15);
+      osc.stop(ctx.currentTime + i * 0.15 + 0.4);
+    });
+  } catch (e) { /* audio not available */ }
+}
+
 // Run setup immediately (doesn't need auth)
 setupScreenShareWindow();
+setupNoticeBoard();
+setupYouTubeControls();
 
 // === Initialize customization on load ===
 buildCustomization();

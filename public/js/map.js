@@ -35,6 +35,11 @@ export const ZONES = [
   { id: 'henrik',    name: "Henrik's Office", type: ZONE_TYPES.OFFICE,   tx: 1,  ty: 10, tw: 12, th: 9 },
   { id: 'alice',     name: "Alice's Office",  type: ZONE_TYPES.OFFICE,   tx: 14, ty: 10, tw: 12, th: 9 },
   { id: 'leo',       name: "Leo's Office",    type: ZONE_TYPES.OFFICE,   tx: 27, ty: 10, tw: 12, th: 9 },
+
+  // OUTSIDE AREA (bottom right — sidewalk + grass area)
+  { id: 'outside',   name: 'Outside',        type: ZONE_TYPES.HALLWAY,  tx: 40, ty: 10, tw: 9,  th: 9 },
+  // Sidewalk corridor at bottom
+  { id: 'sidewalk',  name: 'Sidewalk',       type: ZONE_TYPES.HALLWAY,  tx: 1,  ty: 21, tw: 48, th: 2 },
 ];
 
 export const ZONES_PX = ZONES.map(z => ({
@@ -205,10 +210,47 @@ function createMap() {
   // Rug
   fill(31, 13, 3, 2, T.RUG);
 
-  // ========== RIGHT OPEN AREA (cols 40-48, rows 10-18) ==========
-  // Leave this as open floor / extra hallway space
-  m[10][44] = T.PLANT;
-  m[17][44] = T.PLANT;
+  // ========== OUTSIDE AREA (cols 40-48, rows 10-18) ==========
+  // Door from hallway to outside
+  vWall(39, 9, 11);  // already exists as Leo's right wall area
+  m[9][41] = T.DOOR; m[9][42] = T.DOOR; // door from hallway
+  // Grass area with fence on right
+  fill(44, 10, 5, 9, T.GRASS);
+  vWall(43, 10, 9); // fence line
+  for (let r = 10; r < 19; r++) m[r][43] = T.FENCE;
+  // Sidewalk area
+  fill(40, 10, 3, 9, T.SIDEWALK);
+  m[11][41] = T.PLANT;
+  m[16][41] = T.PLANT;
+  m[12][46] = T.PLANT;
+  m[15][46] = T.PLANT;
+
+  // ========== WINDOWS on office bottom walls ==========
+  // Henrik's windows (looking out to street)
+  m[19][4] = T.WINDOW; m[19][6] = T.WINDOW; m[19][8] = T.WINDOW;
+  // Alice's windows
+  m[19][17] = T.WINDOW; m[19][19] = T.WINDOW; m[19][21] = T.WINDOW;
+  // Leo's windows
+  m[19][30] = T.WINDOW; m[19][32] = T.WINDOW; m[19][34] = T.WINDOW;
+
+  // ========== BOTTOM WALL of building ==========
+  hWall(0, 20, MAP_COLS);
+  // Door to go outside
+  m[20][24] = T.DOOR; m[20][25] = T.DOOR;
+
+  // ========== SIDEWALK (row 21-22) ==========
+  fill(0, 21, MAP_COLS, 2, T.SIDEWALK);
+
+  // ========== STREET (rows 23-25) ==========
+  fill(0, 23, MAP_COLS, 3, T.STREET);
+  // Road markings (dashed center line)
+  for (let c = 2; c < MAP_COLS; c += 4) {
+    m[24][c] = T.FLOOR; // yellow dashes — using floor color as contrast
+  }
+
+  // ========== BOTTOM SIDEWALK + GRASS (rows 26-27) ==========
+  fill(0, 26, MAP_COLS, 1, T.SIDEWALK);
+  fill(0, 27, MAP_COLS, 1, T.GRASS);
 
   return m;
 }
@@ -352,6 +394,40 @@ export function drawMap(ctx, camera) {
           ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
           ctx.fillStyle = colors.fill;
           ctx.fillRect(x + 3, y + 3, TILE_SIZE - 6, TILE_SIZE - 6);
+          break;
+        case T.STREET:
+          ctx.fillStyle = colors.line;
+          ctx.fillRect(x, y + TILE_SIZE / 2 - 1, TILE_SIZE, 2);
+          break;
+        case T.SIDEWALK:
+          ctx.strokeStyle = colors.grid;
+          ctx.lineWidth = 0.5;
+          ctx.strokeRect(x, y, TILE_SIZE, TILE_SIZE);
+          break;
+        case T.GRASS:
+          // Random grass tufts
+          ctx.fillStyle = colors.dark;
+          const seed = (c * 7 + r * 13) % 5;
+          if (seed < 3) { ctx.fillRect(x + 8 + seed * 4, y + 10, 2, 6); }
+          if (seed < 2) { ctx.fillRect(x + 20, y + 16, 2, 5); }
+          break;
+        case T.FENCE:
+          ctx.fillStyle = colors.post;
+          ctx.fillRect(x + 13, y, 6, TILE_SIZE);
+          ctx.fillStyle = colors.fill;
+          ctx.fillRect(x + 2, y + 6, TILE_SIZE - 4, 4);
+          ctx.fillRect(x + 2, y + 20, TILE_SIZE - 4, 4);
+          break;
+        case T.WINDOW:
+          ctx.fillStyle = colors.fill;
+          ctx.fillRect(x + 4, y + 4, TILE_SIZE - 8, TILE_SIZE - 8);
+          ctx.strokeStyle = colors.frame;
+          ctx.lineWidth = 2;
+          ctx.strokeRect(x + 4, y + 4, TILE_SIZE - 8, TILE_SIZE - 8);
+          ctx.strokeStyle = colors.frame;
+          ctx.lineWidth = 1;
+          ctx.beginPath(); ctx.moveTo(x + 16, y + 4); ctx.lineTo(x + 16, y + 28); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(x + 4, y + 16); ctx.lineTo(x + 28, y + 16); ctx.stroke();
           break;
       }
     }

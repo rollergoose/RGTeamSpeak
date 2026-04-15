@@ -24,6 +24,12 @@ let serverRunning = false;
 let planningBoard = [];          // [{ id, assignee, task, duration, column, color }]
 const officePets = new Map();    // petId -> { id, type, name, x, y, ownerId, zone }
 const sessionChat = [];          // in-memory chat messages (cleared on restart)
+// Notice boards: keyed by office zone id → array of notes
+const noticeBoards = { henrik: [], alice: [], leo: [] };
+// Office locks: keyed by office zone id → { locked, lockedBy }
+const officeLocks = { henrik: null, alice: null, leo: null };
+// Player levels: keyed by socketId → { steps, meetingTime, tasksCompleted }
+const playerStats = new Map();
 
 const SPAWN_X = 25 * 32;
 const SPAWN_Y = 8 * 32;
@@ -119,7 +125,7 @@ io.on('connection', (socket) => {
   });
 
   // --- Main Chat (session-only, in-memory) ---
-  socket.on('chat:send', ({ message }) => {
+  socket.on('chat:send', ({ message, zone }) => {
     const player = players.get(socket.id);
     if (!player || !message || message.length > 500) return;
 
@@ -129,11 +135,21 @@ io.on('connection', (socket) => {
       color: player.appearance.shirtColor || '#e94560',
       message,
       timestamp: Date.now(),
+      zone: zone || null, // null = global, string = local to that zone
     };
     sessionChat.push(msg);
-    // Keep last 200 messages in memory
     if (sessionChat.length > 200) sessionChat.shift();
-    io.emit('chat:message', msg);
+
+    if (zone) {
+      // Local chat — only send to players in the same zone
+      for (const [id, p] of players) {
+        if (p.zone === zone) {
+          io.to(id).emit('chat:message', msg);
+        }
+      }
+    } else {
+      io.emit('chat:message', msg);
+    }
   });
 
   // --- Archives Chat (persistent, stored in SQLite) ---
@@ -358,7 +374,7 @@ io.on('connection', (socket) => {
 
   socket.on('pet:remove-pet', ({ petId }) => {
     const pet = officePets.get(petId);
-    if (!pet || pet.ownerId !== socket.id) return;
+    if (!pet) return; // Allow anyone to remove pets
     officePets.delete(petId);
     io.emit('pet:remove', { petId });
   });
@@ -391,6 +407,126 @@ io.on('connection', (socket) => {
   // Pet wander timer — move pets randomly within their zone
   // (handled per-socket but only needs to run once, using setInterval on server)
 
+  // --- Notice Boards ---
+  socket.on('notice:get', ({ officeId }) => {
+    const board = noticeBoards[officeId] || [];
+    socket.emit('notice:sync', { officeId, notes: board });
+  });
+
+  socket.on('notice:add', ({ officeId, message, link, status }) => {
+    const player = players.get(socket.id);
+    if (!player) return;
+    const note = {
+      id: crypto.randomUUID(),
+      author: player.username,
+      message: (message || '').slice(0, 200),
+      link: (link || '').slice(0, 500),
+      status: status || 'feedback', // feedback, done, again
+      color: player.appearance.shirtColor || '#e94560',
+      timestamp: Date.now(),
+    };
+    if (!noticeBoards[officeId]) noticeBoards[officeId] = [];
+    noticeBoards[officeId].push(note);
+    io.emit('notice:sync', { officeId, notes: noticeBoards[officeId] });
+  });
+
+  socket.on('notice:update', ({ officeId, noteId, status, note }) => {
+    const board = noticeBoards[officeId];
+    if (!board) return;
+    const item = board.find(n => n.id === noteId);
+    if (!item) return;
+    if (status) item.status = status;
+    if (note !== undefined) item.message = (note || '').slice(0, 200);
+    io.emit('notice:sync', { officeId, notes: board });
+  });
+
+  socket.on('notice:remove', ({ officeId, noteId }) => {
+    if (!noticeBoards[officeId]) return;
+    noticeBoards[officeId] = noticeBoards[officeId].filter(n => n.id !== noteId);
+    io.emit('notice:sync', { officeId, notes: noticeBoards[officeId] });
+  });
+
+  socket.on('notice:move', ({ fromOffice, toOffice, noteId, status, note }) => {
+    // Move a note from one office board to another
+    if (!noticeBoards[fromOffice]) return;
+    const idx = noticeBoards[fromOffice].findIndex(n => n.id === noteId);
+    if (idx === -1) return;
+    const [item] = noticeBoards[fromOffice].splice(idx, 1);
+    if (status) item.status = status;
+    if (note !== undefined) item.message = (note || '').slice(0, 200);
+    if (!noticeBoards[toOffice]) noticeBoards[toOffice] = [];
+    noticeBoards[toOffice].push(item);
+    io.emit('notice:sync', { officeId: fromOffice, notes: noticeBoards[fromOffice] });
+    io.emit('notice:sync', { officeId: toOffice, notes: noticeBoards[toOffice] });
+  });
+
+  // --- Office Locks ---
+  socket.on('office:lock', ({ officeId }) => {
+    const player = players.get(socket.id);
+    if (!player) return;
+    officeLocks[officeId] = { locked: true, lockedBy: player.username };
+    io.emit('office:lock-sync', { locks: officeLocks });
+  });
+
+  socket.on('office:unlock', ({ officeId }) => {
+    officeLocks[officeId] = null;
+    io.emit('office:lock-sync', { locks: officeLocks });
+  });
+
+  socket.on('office:get-locks', () => {
+    socket.emit('office:lock-sync', { locks: officeLocks });
+  });
+
+  // --- Player Stats / Levels ---
+  socket.on('stats:update', ({ steps, meetingTime }) => {
+    const player = players.get(socket.id);
+    if (!player) return;
+    if (!playerStats.has(socket.id)) {
+      playerStats.set(socket.id, { steps: 0, meetingTime: 0, tasksCompleted: 0 });
+    }
+    const stats = playerStats.get(socket.id);
+    const oldStepLevel = getLevel(stats.steps, 5000);
+    const oldMeetLevel = getLevel(stats.meetingTime, 60);
+
+    if (steps) stats.steps += steps;
+    if (meetingTime) stats.meetingTime += meetingTime;
+
+    const newStepLevel = getLevel(stats.steps, 5000);
+    const newMeetLevel = getLevel(stats.meetingTime, 60);
+
+    // Check for level ups
+    if (newStepLevel > oldStepLevel) {
+      socket.emit('level:up', { category: 'Explorer', level: newStepLevel, stat: 'steps' });
+    }
+    if (newMeetLevel > oldMeetLevel) {
+      socket.emit('level:up', { category: 'Communicator', level: newMeetLevel, stat: 'meetingTime' });
+    }
+
+    socket.emit('stats:sync', { stats, levels: {
+      explorer: newStepLevel,
+      communicator: newMeetLevel,
+      achiever: getLevel(stats.tasksCompleted, 10),
+    }});
+  });
+
+  socket.on('stats:get', () => {
+    const stats = playerStats.get(socket.id) || { steps: 0, meetingTime: 0, tasksCompleted: 0 };
+    socket.emit('stats:sync', { stats, levels: {
+      explorer: getLevel(stats.steps, 5000),
+      communicator: getLevel(stats.meetingTime, 60),
+      achiever: getLevel(stats.tasksCompleted, 10),
+    }});
+  });
+
+  // --- YouTube sync controls ---
+  socket.on('youtube:pause', () => {
+    socket.broadcast.emit('youtube:pause', {});
+  });
+  socket.on('youtube:play', ({ time }) => {
+    if (youtubeState) youtubeState.startedAt = Date.now() - (time || 0) * 1000;
+    socket.broadcast.emit('youtube:play', { time: time || 0 });
+  });
+
   // --- Online Players List ---
   socket.on('players:list', () => {
     const list = [];
@@ -407,6 +543,22 @@ io.on('connection', (socket) => {
   });
 
   // --- Office Furniture ---
+  // Upload saved furniture layout from localStorage on connect
+  socket.on('furniture:upload', ({ furniture }) => {
+    const player = players.get(socket.id);
+    if (!player) return;
+    if (!Array.isArray(furniture)) return;
+    // Validate and sanitize
+    player.officeFurniture = furniture.slice(0, 50).map(f => ({
+      id: f.id || crypto.randomUUID(),
+      type: (f.type || '').slice(0, 20),
+      x: Math.round(f.x || 0),
+      y: Math.round(f.y || 0),
+      owner: socket.id,
+    }));
+    io.emit('furniture:update', { playerId: socket.id, furniture: player.officeFurniture });
+  });
+
   socket.on('furniture:place', ({ type, x, y }) => {
     const player = players.get(socket.id);
     if (!player) return;
@@ -514,6 +666,12 @@ const ZONE_BOUNDS = {
   alice:  { x: 14 * 32, y: 10 * 32, w: 12 * 32, h: 9 * 32 },
   leo:    { x: 27 * 32, y: 10 * 32, w: 12 * 32, h: 9 * 32 },
 };
+
+// Level calculation: each level requires progressively more
+// Max level 10. thresholdPerLevel = amount of stat per level
+function getLevel(stat, thresholdPerLevel) {
+  return Math.min(10, Math.floor(stat / thresholdPerLevel));
+}
 
 function getZoneBounds(zoneId) {
   const z = ZONE_BOUNDS[zoneId];

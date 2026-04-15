@@ -1,7 +1,7 @@
 // === Map ===
 export const TILE_SIZE = 32;
 export const MAP_COLS = 50;
-export const MAP_ROWS = 20;
+export const MAP_ROWS = 28;
 export const MAP_WIDTH = MAP_COLS * TILE_SIZE;
 export const MAP_HEIGHT = MAP_ROWS * TILE_SIZE;
 
@@ -22,6 +22,11 @@ export const T = {
   TOILET_TILE: 12,
   PLANT: 13,
   RUG: 14,
+  STREET: 15,
+  SIDEWALK: 16,
+  GRASS: 17,
+  FENCE: 18,
+  WINDOW: 19,
 };
 
 // === Tile Colors ===
@@ -41,10 +46,15 @@ export const TILE_COLORS = {
   [T.TOILET_TILE]:   { fill: '#e0e8f0', accent: '#c0d0e0' },
   [T.PLANT]:         { fill: '#2d8a4e', pot: '#8b5e3c' },
   [T.RUG]:           { fill: '#8b4560', border: '#6b2540' },
+  [T.STREET]:        { fill: '#3a3a3a', line: '#5a5a3a' },
+  [T.SIDEWALK]:      { fill: '#b0a898', grid: '#a09888' },
+  [T.GRASS]:         { fill: '#4a8c3f', dark: '#3a7030' },
+  [T.FENCE]:         { fill: '#8b7355', post: '#6b5335' },
+  [T.WINDOW]:        { fill: '#88ccee', frame: '#667788' },
 };
 
 // === Which tiles block movement ===
-export const SOLID_TILES = new Set([T.WALL, T.DESK, T.TABLE, T.TV, T.COMPUTER, T.MEETING_TABLE, T.BOARD, T.COUNTER, T.TOILET_TILE, T.PLANT]);
+export const SOLID_TILES = new Set([T.WALL, T.DESK, T.TABLE, T.TV, T.COMPUTER, T.MEETING_TABLE, T.BOARD, T.COUNTER, T.TOILET_TILE, T.PLANT, T.FENCE, T.WINDOW]);
 
 // === Player ===
 export const MOVE_SPEED = 2.5;
@@ -80,6 +90,55 @@ export const PANTS_COLORS = [
 
 // === Hair styles ===
 export const HAIR_STYLES = ['short', 'long', 'curly', 'spiky', 'none'];
+
+// === Level System ===
+// 5 categories × 10 sub-levels each = 50 total player level
+// Categories: Explorer (steps), Communicator (meeting time), Feedback (notices posted),
+//             Chatter (chat messages), Achiever (tasks completed)
+export const LEVEL_CATEGORIES = [
+  { id: 'explorer',      name: 'Explorer 🚶',      icon: '🚶', perLevel: 500,  stat: 'steps' },
+  { id: 'communicator',  name: 'Communicator 💬',   icon: '💬', perLevel: 5,    stat: 'meetingTime' },
+  { id: 'feedback',      name: 'Feedback 📝',       icon: '📝', perLevel: 3,    stat: 'feedbackGiven' },
+  { id: 'chatter',       name: 'Chatter 💭',        icon: '💭', perLevel: 50,   stat: 'chatMessages' },
+  { id: 'achiever',      name: 'Achiever ✅',       icon: '✅', perLevel: 5,    stat: 'tasksCompleted' },
+];
+
+// === Unlockable cosmetics (player level = sum of all sub-levels, max 50) ===
+export const HATS = [
+  { id: 'none',       name: 'None',            level: 0 },
+  { id: 'cap',        name: 'Baseball Cap',     level: 2 },
+  { id: 'beanie',     name: 'Beanie',           level: 5 },
+  { id: 'tophat',     name: 'Top Hat',          level: 8 },
+  { id: 'cowboy',     name: 'Cowboy Hat',       level: 12 },
+  { id: 'crown',      name: 'Crown',            level: 16 },
+  { id: 'wizard',     name: 'Wizard Hat',       level: 20 },
+  { id: 'hood',       name: 'Dark Hood',        level: 25 },
+  { id: 'halo',       name: 'Halo',             level: 30 },
+  { id: 'horns',      name: 'Devil Horns',      level: 38 },
+  { id: 'clown',      name: 'Clown Hat',        level: 45 },
+];
+
+export const OUTFITS = [
+  { id: 'none',       name: 'Default',          level: 0 },
+  { id: 'vest',       name: 'Vest',             level: 3 },
+  { id: 'suit',       name: 'Business Suit',    level: 10 },
+  { id: 'hoodie',     name: 'Hoodie',           level: 15 },
+  { id: 'cloak',      name: 'Dark Cloak',       level: 22 },
+  { id: 'armor',      name: 'Knight Armor',     level: 30 },
+  { id: 'clown',      name: 'Clown Outfit',     level: 38 },
+  { id: 'royal',      name: 'Royal Robe',       level: 46 },
+];
+
+export const FACES = [
+  { id: 'none',       name: 'Normal',           level: 0 },
+  { id: 'sunglasses', name: 'Sunglasses',       level: 4 },
+  { id: 'monocle',    name: 'Monocle',          level: 10 },
+  { id: 'bandana',    name: 'Bandana',          level: 18 },
+  { id: 'eyepatch',   name: 'Eyepatch',         level: 24 },
+  { id: 'clown',      name: 'Clown Makeup',     level: 32 },
+  { id: 'mask',       name: 'Mask',             level: 40 },
+  { id: 'golden',     name: 'Golden Mask',      level: 50 },
+];
 
 // === Zone types ===
 export const ZONE_TYPES = {

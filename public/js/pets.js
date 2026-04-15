@@ -60,8 +60,8 @@ export function initPets() {
     if (pet) {
       for (let i = 0; i < 3; i++) {
         hearts.push({
-          x: pet.drawX + (Math.random() - 0.5) * 20,
-          y: pet.drawY - 10,
+          petId: petId, // track which pet this heart belongs to
+          offsetX: (Math.random() - 0.5) * 16,
           startTime: Date.now() + i * 200,
         });
       }
@@ -264,27 +264,31 @@ export function drawPets(ctx, camera) {
     ctx.restore();
   }
 
-  // Draw hearts
+  // Draw hearts — follow the pet they belong to
   for (const heart of hearts) {
     if (now < heart.startTime) continue;
+    const pet = pets.get(heart.petId);
+    if (!pet) continue;
+
     const elapsed = now - heart.startTime;
     const progress = elapsed / 1500;
     const alpha = 1 - progress;
-    const y = heart.y - elapsed * 0.03;
+    const hx = pet.drawX - camera.x + heart.offsetX;
+    const hy = pet.drawY - camera.y - 15 - elapsed * 0.03;
 
     ctx.globalAlpha = alpha;
     ctx.font = '14px serif';
     ctx.textAlign = 'center';
-    ctx.fillText('❤️', heart.x, y);
+    ctx.fillText('❤️', hx, hy);
   }
   ctx.globalAlpha = 1;
 }
 
-// Check if local player is near any pet (for petting with F key)
+// Check if local player is near any pet — range covers the whole office
 export function getNearbyPet(px, py) {
   for (const pet of pets.values()) {
     const dist = Math.sqrt((px - pet.drawX) ** 2 + (py - pet.drawY) ** 2);
-    if (dist < TILE_SIZE * 2) return pet;
+    if (dist < TILE_SIZE * 10) return pet; // ~10 tiles = full office
   }
   return null;
 }
