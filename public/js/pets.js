@@ -99,9 +99,9 @@ export function initPets() {
 
 export function updatePets(dt) {
   for (const pet of pets.values()) {
-    // Lerp position
-    pet.drawX += (pet.targetX - pet.drawX) * 0.08;
-    pet.drawY += (pet.targetY - pet.drawY) * 0.08;
+    // Lerp position — slow stroll
+    pet.drawX += (pet.targetX - pet.drawX) * 0.02;
+    pet.drawY += (pet.targetY - pet.drawY) * 0.02;
 
     // Direction based on movement
     const dx = pet.targetX - pet.drawX;

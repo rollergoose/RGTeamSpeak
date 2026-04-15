@@ -456,6 +456,21 @@ body {
   border-color: #e94560;
 }
 
+.youtube-sync-btn {
+  background: #3498db;
+  border: none;
+  color: #fff;
+  padding: 3px 10px;
+  border-radius: 4px;
+  font-size: 11px;
+  cursor: pointer;
+  margin-left: 6px;
+}
+
+.youtube-sync-btn:hover {
+  background: #2980b9;
+}
+
 /* === CHAT SIDEBAR === */
 #chat-sidebar {
   width: 300px;

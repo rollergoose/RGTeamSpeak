@@ -4,6 +4,7 @@ let youtubeOverlay, youtubeInput, youtubeIframe, youtubeClear, youtubeInfo;
 let isInChillZone = false;
 let currentVideo = null;
 let iframeLoaded = false;
+let lastSyncTime = 0;
 
 export function initYouTube() {
   youtubeOverlay = document.getElementById('youtube-overlay');
@@ -37,6 +38,37 @@ export function initYouTube() {
     iframeLoaded = false;
     updateDisplay();
   });
+
+  // Sync: when another player seeks, jump to their position
+  network.on('youtube:seek', ({ time }) => {
+    if (!isInChillZone || !currentVideo || !iframeLoaded) return;
+    // Reload iframe at the new time
+    youtubeIframe.src = `https://www.youtube.com/embed/${currentVideo.videoId}?autoplay=1&start=${Math.floor(time)}`;
+  });
+
+  // Detect when local user seeks — poll the iframe for time changes
+  // (YouTube embed doesn't expose seek events directly, so we track via server timestamp)
+  // When user submits a new URL, everyone syncs. For seeking within a video,
+  // add a "Sync" button players can click to broadcast their current position.
+  const syncBtn = document.createElement('button');
+  syncBtn.textContent = '🔄 Sync All';
+  syncBtn.className = 'youtube-sync-btn';
+  syncBtn.title = 'Sync everyone to your current position in the video';
+  syncBtn.addEventListener('click', () => {
+    if (!currentVideo) return;
+    // We can't read iframe time cross-origin, so use elapsed time since video started
+    const elapsed = (Date.now() - currentVideo.startedAt) / 1000;
+    // Ask user for approximate time
+    const input = prompt('Enter the current video time (in seconds) to sync everyone:', Math.floor(elapsed));
+    if (input === null) return;
+    const time = parseInt(input) || 0;
+    network.emit('youtube:seek', { time });
+    // Update our own startedAt to match
+    currentVideo.startedAt = Date.now() - time * 1000;
+  });
+
+  // Insert sync button after the clear button
+  youtubeClear.parentElement.appendChild(syncBtn);
 }
 
 export function enterChillZone() {
@@ -44,14 +76,7 @@ export function enterChillZone() {
   youtubeOverlay.classList.add('visible');
 
   if (currentVideo && currentVideo.videoId) {
-    if (!iframeLoaded) {
-      // Load the video fresh with sound
-      loadVideo();
-    } else {
-      // Already loaded — unmute by reloading with autoplay
-      // YouTube iframe API doesn't allow unmuting from outside, so reload
-      loadVideo();
-    }
+    loadVideo();
   }
 }
 
@@ -59,7 +84,6 @@ export function leaveChillZone() {
   isInChillZone = false;
   youtubeOverlay.classList.remove('visible');
 
-  // Mute by removing the iframe src (stops playback entirely)
   if (youtubeIframe) {
     youtubeIframe.src = '';
     iframeLoaded = false;
@@ -99,11 +123,9 @@ function updateDisplay() {
     return;
   }
 
-  // Only auto-load if we're in the chill zone
   if (isInChillZone) {
     loadVideo();
   } else {
-    // Update info text but don't load video (we're not in the zone)
     youtubeInfo.textContent = currentVideo.setBy ? `Playing — set by ${currentVideo.setBy}` : 'Playing';
     youtubeClear.style.display = 'inline-block';
   }

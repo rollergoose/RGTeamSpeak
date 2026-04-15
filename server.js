@@ -238,6 +238,15 @@ io.on('connection', (socket) => {
     io.emit('youtube:cleared');
   });
 
+  socket.on('youtube:seek', ({ time }) => {
+    // Update the server's startedAt to reflect the new position
+    if (youtubeState) {
+      youtubeState.startedAt = Date.now() - (time || 0) * 1000;
+    }
+    // Broadcast to all OTHER players
+    socket.broadcast.emit('youtube:seek', { time: time || 0 });
+  });
+
   // --- Status ---
   socket.on('status:set', ({ text, link }) => {
     const player = players.get(socket.id);
@@ -490,18 +499,21 @@ function getZoneBounds(zoneId) {
   return { ...z, cx: z.x + z.w / 2, cy: z.y + z.h / 2 };
 }
 
-// Pet wander — move pets randomly every 3-6 seconds
+// Pet wander — dogs slowly stroll around their office
 setInterval(() => {
   for (const pet of officePets.values()) {
     const z = ZONE_BOUNDS[pet.zone];
     if (!z) continue;
-    // Random position within the zone (with margin)
-    const margin = 40;
-    pet.x = z.x + margin + Math.random() * (z.w - margin * 2);
-    pet.y = z.y + margin + Math.random() * (z.h - margin * 2);
+    // Small random movement (30-60px) from current position, clamped to zone
+    const margin = 48;
+    const moveRange = 50;
+    const newX = Math.max(z.x + margin, Math.min(z.x + z.w - margin, pet.x + (Math.random() - 0.5) * moveRange * 2));
+    const newY = Math.max(z.y + margin, Math.min(z.y + z.h - margin, pet.y + (Math.random() - 0.5) * moveRange * 2));
+    pet.x = newX;
+    pet.y = newY;
     io.emit('pet:update', { petId: pet.id, x: pet.x, y: pet.y, action: 'walk' });
   }
-}, 4000 + Math.random() * 2000);
+}, 8000 + Math.random() * 7000);
 
 module.exports = { startServer, stopServer, getState };
 
