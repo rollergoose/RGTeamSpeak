@@ -2,42 +2,23 @@ import { POSITION_SEND_INTERVAL, LERP_FACTOR } from './constants.js';
 
 let socket = null;
 let lastSendTime = 0;
-const eventHandlers = {};
 
 export function connect() {
-  socket = io();
-
-  socket.onAny((event, ...args) => {
-    const handlers = eventHandlers[event];
-    if (handlers) {
-      for (const h of handlers) h(...args);
-    }
+  return new Promise((resolve) => {
+    socket = io();
+    socket.on('connect', () => resolve(socket));
   });
-
-  socket.on('connect', () => {
-    const handlers = eventHandlers['_connect'];
-    if (handlers) for (const h of handlers) h();
-  });
-
-  socket.on('disconnect', () => {
-    const handlers = eventHandlers['_disconnect'];
-    if (handlers) for (const h of handlers) h();
-  });
-
-  return socket;
 }
 
 export function getSocket() { return socket; }
 export function getSocketId() { return socket ? socket.id : null; }
 
 export function on(event, handler) {
-  if (!eventHandlers[event]) eventHandlers[event] = [];
-  eventHandlers[event].push(handler);
+  if (socket) socket.on(event, handler);
 }
 
 export function off(event, handler) {
-  if (!eventHandlers[event]) return;
-  eventHandlers[event] = eventHandlers[event].filter(h => h !== handler);
+  if (socket) socket.off(event, handler);
 }
 
 export function emit(event, data) {
@@ -71,6 +52,7 @@ export class RemotePlayer {
     this.inMeeting = false;
     this.isScreenSharing = false;
     this.workStatus = data.status || null;
+    this.officeFurniture = [];
   }
 
   setTarget(x, y, direction, isMoving) {

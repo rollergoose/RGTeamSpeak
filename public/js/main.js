@@ -117,15 +117,13 @@ usernameInput.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') joinBtn.click();
 });
 
-function startApp(username) {
+async function startApp(username) {
   loginScreen.style.display = 'none';
   gameContainer.style.display = 'flex';
   chatSidebar.style.display = 'flex';
 
-  // Register ALL handlers BEFORE connecting
-  network.on('_connect', () => {
-    network.emit('auth', { username, appearance });
-  });
+  // Connect first, then register handlers (socket is ready)
+  await network.connect();
 
   network.on('auth:ok', (data) => {
     try {
@@ -168,8 +166,8 @@ function startApp(username) {
     alert(data.message || 'Failed to join');
   });
 
-  // Now connect (handlers are registered, so _connect will fire auth)
-  network.connect();
+  // Socket is connected, send auth
+  network.emit('auth', { username, appearance });
 }
 
 // === Network Handlers ===
@@ -304,6 +302,15 @@ function setupStatusPanel() {
   const statusLink = document.getElementById('status-link');
   const statusSetBtn = document.getElementById('status-set-btn');
   const statusClearBtn = document.getElementById('status-clear-btn');
+  const statusPanel = document.getElementById('status-panel');
+  const statusToggle = document.getElementById('status-panel-toggle');
+  const statusArrow = document.getElementById('status-panel-arrow');
+
+  // Toggle minimize
+  statusToggle.addEventListener('click', () => {
+    statusPanel.classList.toggle('collapsed');
+    statusArrow.textContent = statusPanel.classList.contains('collapsed') ? '▶' : '▼';
+  });
 
   [statusInput, statusLink].forEach(el => {
     el.addEventListener('keydown', e => e.stopPropagation());

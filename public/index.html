@@ -92,12 +92,17 @@
 
     <!-- Status panel (office zones) -->
     <div id="status-panel">
-      <div class="status-panel-header">Set Your Status</div>
-      <input type="text" id="status-input" placeholder="What are you working on?" maxlength="100">
-      <input type="text" id="status-link" placeholder="Link (optional, e.g. drive URL)" maxlength="500">
-      <div class="status-panel-btns">
-        <button id="status-set-btn" class="ctrl-btn">Set Status</button>
-        <button id="status-clear-btn" class="ctrl-btn">Clear</button>
+      <div class="status-panel-header" id="status-panel-toggle">
+        <span>Set Your Status</span>
+        <span id="status-panel-arrow">▼</span>
+      </div>
+      <div id="status-panel-body">
+        <input type="text" id="status-input" placeholder="What are you working on?" maxlength="100">
+        <input type="text" id="status-link" placeholder="Link (optional, e.g. drive URL)" maxlength="500">
+        <div class="status-panel-btns">
+          <button id="status-set-btn" class="ctrl-btn">Set Status</button>
+          <button id="status-clear-btn" class="ctrl-btn">Clear</button>
+        </div>
       </div>
     </div>
 

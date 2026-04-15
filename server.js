@@ -477,11 +477,11 @@ function getState() {
   return { running: serverRunning, players: userList, playerCount: players.size };
 }
 
-// Zone bounds helper for pet spawning
+// Zone bounds helper for pet spawning — must match map.js ZONES
 const ZONE_BOUNDS = {
-  henrik: { x: 5 * 32, y: 21 * 32, w: 8 * 32, h: 6 * 32 },
-  alice:  { x: 16 * 32, y: 21 * 32, w: 8 * 32, h: 6 * 32 },
-  leo:    { x: 27 * 32, y: 21 * 32, w: 8 * 32, h: 6 * 32 },
+  henrik: { x: 1 * 32, y: 10 * 32, w: 12 * 32, h: 9 * 32 },
+  alice:  { x: 14 * 32, y: 10 * 32, w: 12 * 32, h: 9 * 32 },
+  leo:    { x: 27 * 32, y: 10 * 32, w: 12 * 32, h: 9 * 32 },
 };
 
 function getZoneBounds(zoneId) {

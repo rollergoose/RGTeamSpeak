@@ -265,14 +265,9 @@ function drawInteractHint(ctx, nearBoard) {
 }
 
 // ========== PLACED FURNITURE RENDERING ==========
-const FURNITURE_EMOJIS = {
-  chair: '🪑', table: '🪵', couch: '🛋️', plant: '🌿',
-  bookshelf: '📚', whiteboard: '📋', lamp: '💡', rug: '🟫',
-  poster: '🖼️', clock: '🕐', trophy: '🏆', sign: '🪧',
-};
+const S = 32; // tile size for placed furniture
 
 function drawPlacedFurniture(ctx, camera) {
-  // Collect all furniture from all players
   const allFurniture = [];
   if (localPlayer && localPlayer.officeFurniture) {
     for (const item of localPlayer.officeFurniture) allFurniture.push(item);
@@ -283,26 +278,167 @@ function drawPlacedFurniture(ctx, camera) {
     }
   }
 
-  ctx.font = '20px serif';
-  ctx.textAlign = 'center';
   for (const item of allFurniture) {
-    const sx = item.x - camera.x;
-    const sy = item.y - camera.y;
+    const x = item.x - camera.x - S / 2;
+    const y = item.y - camera.y - S / 2;
 
-    // Only draw if visible
-    if (sx < -40 || sx > camera.w + 40 || sy < -40 || sy > camera.h + 40) continue;
+    if (x < -S || x > camera.w + S || y < -S || y > camera.h + S) continue;
 
-    // Draw a small background circle
-    ctx.fillStyle = 'rgba(0,0,0,0.2)';
-    ctx.beginPath();
-    ctx.arc(sx, sy, 14, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Draw the emoji
-    const emoji = FURNITURE_EMOJIS[item.type] || '📦';
-    ctx.fillText(emoji, sx, sy + 7);
+    drawFurnitureItem(ctx, x, y, item.type);
   }
-  ctx.textAlign = 'center';
+}
+
+function drawFurnitureItem(ctx, x, y, type) {
+  switch (type) {
+    case 'chair':
+      ctx.fillStyle = '#5a5a5a';
+      ctx.fillRect(x + 8, y + 8, 16, 16);
+      ctx.fillStyle = '#6e6e6e';
+      ctx.fillRect(x + 10, y + 4, 12, 6);
+      break;
+    case 'table':
+      ctx.fillStyle = '#a0522d';
+      ctx.fillRect(x + 2, y + 2, S - 4, S - 4);
+      ctx.fillStyle = '#b8633a';
+      ctx.strokeStyle = '#a0522d';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(x + 4, y + 4, S - 8, S - 8);
+      break;
+    case 'couch':
+      ctx.fillStyle = '#4682b4';
+      ctx.fillRect(x + 2, y + 2, 4, S - 4);
+      ctx.fillRect(x + S - 6, y + 2, 4, S - 4);
+      ctx.fillStyle = '#5a9bc9';
+      ctx.fillRect(x + 4, y + 4, S - 8, S - 8);
+      break;
+    case 'plant':
+      ctx.fillStyle = '#8b5e3c';
+      ctx.fillRect(x + 10, y + 20, 12, 10);
+      ctx.fillRect(x + 8, y + 18, 16, 4);
+      ctx.fillStyle = '#2d8a4e';
+      ctx.beginPath(); ctx.arc(x + 16, y + 14, 8, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#1a7a3a';
+      ctx.beginPath(); ctx.arc(x + 12, y + 11, 5, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(x + 20, y + 11, 5, 0, Math.PI * 2); ctx.fill();
+      break;
+    case 'bookshelf':
+      ctx.fillStyle = '#6b4226';
+      ctx.fillRect(x + 2, y + 2, S - 4, S - 4);
+      ctx.fillStyle = '#8b5a2b';
+      ctx.fillRect(x + 4, y + 4, S - 8, 6);
+      ctx.fillRect(x + 4, y + 12, S - 8, 6);
+      ctx.fillRect(x + 4, y + 20, S - 8, 6);
+      // Books
+      ctx.fillStyle = '#c0392b'; ctx.fillRect(x + 6, y + 5, 4, 5);
+      ctx.fillStyle = '#2980b9'; ctx.fillRect(x + 11, y + 5, 4, 5);
+      ctx.fillStyle = '#27ae60'; ctx.fillRect(x + 16, y + 5, 4, 5);
+      ctx.fillStyle = '#f39c12'; ctx.fillRect(x + 6, y + 13, 4, 5);
+      ctx.fillStyle = '#8e44ad'; ctx.fillRect(x + 11, y + 13, 4, 5);
+      ctx.fillStyle = '#e74c3c'; ctx.fillRect(x + 16, y + 21, 4, 5);
+      ctx.fillStyle = '#3498db'; ctx.fillRect(x + 6, y + 21, 4, 5);
+      break;
+    case 'whiteboard':
+      ctx.fillStyle = '#ddd';
+      ctx.fillRect(x + 3, y + 3, S - 6, S - 6);
+      ctx.strokeStyle = '#888';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(x + 3, y + 3, S - 6, S - 6);
+      // Lines on board
+      ctx.strokeStyle = '#c00';
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(x + 8, y + 10); ctx.lineTo(x + 24, y + 10); ctx.stroke();
+      ctx.strokeStyle = '#00c';
+      ctx.beginPath(); ctx.moveTo(x + 8, y + 16); ctx.lineTo(x + 20, y + 16); ctx.stroke();
+      ctx.strokeStyle = '#0a0';
+      ctx.beginPath(); ctx.moveTo(x + 8, y + 22); ctx.lineTo(x + 22, y + 22); ctx.stroke();
+      break;
+    case 'lamp':
+      // Base
+      ctx.fillStyle = '#555';
+      ctx.fillRect(x + 12, y + 24, 8, 6);
+      // Pole
+      ctx.fillStyle = '#777';
+      ctx.fillRect(x + 15, y + 10, 2, 14);
+      // Shade
+      ctx.fillStyle = '#f1c40f';
+      ctx.beginPath(); ctx.moveTo(x + 8, y + 12); ctx.lineTo(x + 24, y + 12); ctx.lineTo(x + 20, y + 4); ctx.lineTo(x + 12, y + 4); ctx.fill();
+      // Glow
+      ctx.fillStyle = 'rgba(241,196,15,0.15)';
+      ctx.beginPath(); ctx.arc(x + 16, y + 10, 12, 0, Math.PI * 2); ctx.fill();
+      break;
+    case 'rug':
+      ctx.fillStyle = '#6b2540';
+      ctx.fillRect(x, y, S, S);
+      ctx.fillStyle = '#8b4560';
+      ctx.fillRect(x + 3, y + 3, S - 6, S - 6);
+      ctx.fillStyle = '#a05070';
+      ctx.fillRect(x + 8, y + 8, S - 16, S - 16);
+      break;
+    case 'poster':
+      ctx.fillStyle = '#f0e6d3';
+      ctx.fillRect(x + 4, y + 2, S - 8, S - 4);
+      ctx.strokeStyle = '#8b7355';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(x + 4, y + 2, S - 8, S - 4);
+      // Art
+      ctx.fillStyle = '#e94560';
+      ctx.fillRect(x + 8, y + 6, 6, 8);
+      ctx.fillStyle = '#3498db';
+      ctx.fillRect(x + 16, y + 8, 6, 6);
+      ctx.fillStyle = '#2ecc71';
+      ctx.beginPath(); ctx.arc(x + 16, y + 22, 4, 0, Math.PI * 2); ctx.fill();
+      break;
+    case 'clock':
+      ctx.fillStyle = '#fff';
+      ctx.beginPath(); ctx.arc(x + 16, y + 16, 12, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#333';
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(x + 16, y + 16, 12, 0, Math.PI * 2); ctx.stroke();
+      // Hands
+      ctx.strokeStyle = '#222';
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(x + 16, y + 16); ctx.lineTo(x + 16, y + 7); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x + 16, y + 16); ctx.lineTo(x + 22, y + 16); ctx.stroke();
+      ctx.fillStyle = '#c00';
+      ctx.beginPath(); ctx.arc(x + 16, y + 16, 2, 0, Math.PI * 2); ctx.fill();
+      break;
+    case 'trophy':
+      // Cup
+      ctx.fillStyle = '#f1c40f';
+      ctx.fillRect(x + 10, y + 8, 12, 10);
+      ctx.fillRect(x + 12, y + 18, 8, 4);
+      ctx.fillRect(x + 10, y + 22, 12, 3);
+      // Handles
+      ctx.strokeStyle = '#d4a017';
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(x + 8, y + 13, 4, 0.5 * Math.PI, 1.5 * Math.PI); ctx.stroke();
+      ctx.beginPath(); ctx.arc(x + 24, y + 13, 4, 1.5 * Math.PI, 0.5 * Math.PI); ctx.stroke();
+      // Star
+      ctx.fillStyle = '#fff';
+      ctx.font = '8px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('★', x + 16, y + 16);
+      break;
+    case 'sign':
+      // Post
+      ctx.fillStyle = '#8b5e3c';
+      ctx.fillRect(x + 14, y + 16, 4, 14);
+      // Sign board
+      ctx.fillStyle = '#f5f0e0';
+      ctx.fillRect(x + 4, y + 4, S - 8, 14);
+      ctx.strokeStyle = '#8b7355';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(x + 4, y + 4, S - 8, 14);
+      ctx.fillStyle = '#555';
+      ctx.font = '7px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('HELLO', x + 16, y + 13);
+      break;
+    default:
+      ctx.fillStyle = 'rgba(150,150,150,0.5)';
+      ctx.fillRect(x + 4, y + 4, S - 8, S - 8);
+      break;
+  }
 }
 
 // ========== CHAT SPEECH BUBBLE ==========

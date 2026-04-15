@@ -597,6 +597,19 @@ body {
   color: #8899aa;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  user-select: none;
+}
+
+.status-panel-header:hover {
+  color: #aabbcc;
+}
+
+#status-panel.collapsed #status-panel-body {
+  display: none;
 }
 
 #status-panel input {
