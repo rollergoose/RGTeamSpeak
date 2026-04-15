@@ -103,6 +103,10 @@ function onKeyDown(e) {
     onKeyAction('lock'); // Lock/unlock office door
     e.preventDefault();
   }
+  if ((key === ' ' || key === 'Space') && onKeyAction) {
+    onKeyAction('knock');
+    e.preventDefault();
+  }
   if (key === 'f' && localPlayer) {
     const pet = getNearbyPet(localPlayer.x, localPlayer.y);
     if (pet) {
@@ -925,7 +929,7 @@ function distToRect(px, py, rx, ry, rw, rh) {
 
 // ========== VEHICLES ON STREET ==========
 const VEHICLE_COLORS = ['#c0392b', '#2980b9', '#27ae60', '#f39c12', '#8e44ad', '#fff', '#333'];
-const STREET_Y = 24 * TILE_SIZE; // row 24 = center of street
+const STREET_Y = 21 * TILE_SIZE; // row 21 = center of street (rows 20-22)
 
 function updateAndDrawVehicles(ctx, camera, dt) {
   // Spawn vehicles randomly

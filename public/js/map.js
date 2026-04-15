@@ -97,15 +97,21 @@ function createMap() {
   fill(11, 2, 3, 1, T.COUCH); fill(11, 4, 3, 1, T.COUCH);
   m[3][15] = T.TABLE; m[3][16] = T.TABLE; m[1][10] = T.PLANT;
 
-  // Restroom
-  m[2][20] = T.TOILET_TILE; m[2][22] = T.TOILET_TILE;
-  m[4][20] = T.COUNTER; m[4][22] = T.COUNTER;
+  // Restroom — split into His & Hers with wall at col 22
+  vWall(22, 0, 7);
+  // Her side (cols 19-21): 3 toilets on top, 3 sinks on bottom
+  m[1][19] = T.TOILET_TILE; m[1][20] = T.TOILET_TILE; m[1][21] = T.TOILET_TILE;
+  m[4][19] = T.COUNTER; m[4][20] = T.COUNTER; m[4][21] = T.COUNTER;
+  // His side (cols 23-25): 3 toilets on top, 3 sinks on bottom
+  m[1][23] = T.TOILET_TILE; m[1][24] = T.TOILET_TILE; m[1][25] = T.TOILET_TILE;
+  m[4][23] = T.COUNTER; m[4][24] = T.COUNTER; m[4][25] = T.COUNTER;
 
-  // Kitchen
-  fill(28, 1, 4, 1, T.COUNTER); fill(33, 2, 1, 2, T.COUNTER);
-  fill(29, 3, 2, 1, T.TABLE);
-  m[2][29] = T.CHAIR; m[4][29] = T.CHAIR; m[4][30] = T.CHAIR;
-  m[4][27] = T.PLANT;
+  // Kitchen — horizontal table with chairs, 1 tile free around
+  fill(28, 1, 4, 1, T.COUNTER); fill(33, 1, 1, 3, T.COUNTER);
+  fill(29, 3, 3, 1, T.TABLE); // horizontal table
+  m[2][29] = T.CHAIR; m[2][30] = T.CHAIR; m[2][31] = T.CHAIR; // chairs above
+  m[4][29] = T.CHAIR; m[4][30] = T.CHAIR; m[4][31] = T.CHAIR; // chairs below
+  m[1][27] = T.PLANT;
 
   // Archives
   m[1][36] = T.DESK; m[1][37] = T.DESK; m[1][38] = T.DESK; m[1][39] = T.DESK;
@@ -138,13 +144,13 @@ function createMap() {
   // Meeting Room (cols 22-31, rows 10-15)
   vWall(32, 9, 8);
   m[9][25] = T.DOOR; m[9][26] = T.DOOR;
-  // Meeting table + chairs
-  fill(24, 11, 4, 2, T.MEETING_TABLE);
-  m[10][24] = T.CHAIR; m[10][26] = T.CHAIR; m[10][27] = T.CHAIR;
-  m[13][24] = T.CHAIR; m[13][26] = T.CHAIR; m[13][27] = T.CHAIR;
-  m[11][23] = T.CHAIR; m[12][23] = T.CHAIR;
-  m[11][28] = T.CHAIR; m[12][28] = T.CHAIR;
-  m[10][22] = T.PLANT; m[14][30] = T.PLANT;
+  // Meeting table + chairs (centered with 1 tile gap all around)
+  fill(24, 12, 4, 2, T.MEETING_TABLE);
+  m[11][24] = T.CHAIR; m[11][26] = T.CHAIR; m[11][27] = T.CHAIR;
+  m[14][24] = T.CHAIR; m[14][26] = T.CHAIR; m[14][27] = T.CHAIR;
+  m[12][23] = T.CHAIR; m[13][23] = T.CHAIR;
+  m[12][28] = T.CHAIR; m[13][28] = T.CHAIR;
+  m[10][22] = T.PLANT; m[10][30] = T.PLANT;
 
   // ========== OUTSIDE YARD (cols 33-48, rows 10-15) ==========
   m[9][34] = T.DOOR; m[9][35] = T.DOOR;
@@ -171,8 +177,12 @@ function createMap() {
   // ========== SIDEWALK + STREET ==========
   fill(0, 18, MAP_COLS, 2, T.SIDEWALK);
   fill(0, 20, MAP_COLS, 3, T.STREET);
-  for (let c = 2; c < MAP_COLS; c += 4) m[21][c] = T.FLOOR; // center line
   fill(0, 23, MAP_COLS, 1, T.GRASS);
+
+  // Bus stop on the sidewalk near the yard entrance
+  m[18][38] = T.COUNTER; // bus stop bench
+  m[18][39] = T.COUNTER;
+  m[17][39] = T.BOARD;   // bus stop sign
 
   return m;
 }
@@ -391,12 +401,16 @@ export function getOfficeBoardNearby(px, py) {
   return null;
 }
 
+// Only detects the HALLWAY planning board (row 6), not office notice boards (row 10)
 export function isBoardNearby(px, py) {
   const col = Math.floor(px / TILE_SIZE);
   const row = Math.floor(py / TILE_SIZE);
+  // Planning board is at row 6 — only match boards in rows 5-7
   for (let dr = -2; dr <= 2; dr++) {
     for (let dc = -2; dc <= 2; dc++) {
-      if (getTile(col + dc, row + dr) === T.BOARD) return true;
+      const r = row + dr;
+      const c = col + dc;
+      if (r >= 5 && r <= 7 && getTile(c, r) === T.BOARD) return true;
     }
   }
   return false;

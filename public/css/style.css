@@ -1480,35 +1480,56 @@ body {
 }
 
 /* === ONLINE PLAYERS HUD === */
-#online-hud {
+#online-btn {
   position: absolute;
-  top: 40px;
-  left: 16px;
-  width: 200px;
-  background: rgba(12,12,25,0.88);
-  border-radius: 10px;
-  border: 1px solid rgba(255,255,255,0.08);
-  z-index: 25;
-  backdrop-filter: blur(6px);
-  overflow: hidden;
-  transition: max-height 0.3s;
-  max-height: 400px;
+  top: 8px;
+  right: 100px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #16213e;
+  border: 2px solid rgba(255,255,255,0.1);
+  font-size: 16px;
+  cursor: pointer;
+  z-index: 110;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
 }
 
-#online-hud.collapsed {
-  max-height: 32px;
+#online-btn:hover {
+  border-color: #2ecc71;
+  box-shadow: 0 2px 12px rgba(46,204,113,0.3);
+}
+
+#online-hud {
+  position: absolute;
+  top: 50px;
+  right: 100px;
+  width: 220px;
+  background: rgba(12,12,25,0.92);
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.08);
+  z-index: 110;
+  backdrop-filter: blur(6px);
+  overflow: hidden;
+  display: none;
+}
+
+#online-hud.visible {
+  display: block;
 }
 
 .online-hud-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 7px 12px;
+  padding: 8px 12px;
   font-size: 12px;
   font-weight: 600;
   color: #aabbcc;
-  cursor: pointer;
-  user-select: none;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
 }
 
 .online-badge {

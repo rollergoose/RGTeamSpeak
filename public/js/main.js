@@ -307,7 +307,7 @@ function setupZoneCallbacks() {
       statusPanel.classList.remove('visible');
       document.getElementById('notice-board-overlay').classList.remove('visible');
       document.getElementById('office-tools').classList.remove('visible');
-      document.getElementById('furniture-menu').style.display = 'none';
+      document.getElementById('furniture-menu').classList.remove('visible');
       document.getElementById('tool-furniture')?.classList.remove('active');
     }
   });
@@ -594,12 +594,12 @@ function setupGameCallbacks() {
     },
     keyAction: (action) => {
       if (action === 'interact') {
-        // E key: Planning board, office notice board, OR knock on door
+        // E key: Check office feedback board FIRST, then planning board, then knock
         const mapMod = requireMap();
-        if (mapMod.isBoardNearby && mapMod.isBoardNearby(localPlayer.x, localPlayer.y)) {
-          if (isBoardOpen()) closeBoard();
-          else openBoard();
-        } else if (mapMod.getOfficeBoardNearby) {
+        let handled = false;
+
+        // 1. Office feedback board (inside offices)
+        if (mapMod.getOfficeBoardNearby) {
           const officeBoard = mapMod.getOfficeBoardNearby(localPlayer.x, localPlayer.y);
           if (officeBoard) {
             const overlay = document.getElementById('notice-board-overlay');
@@ -608,17 +608,29 @@ function setupGameCallbacks() {
             } else {
               openNoticeBoard(officeBoard.officeId, officeBoard.zoneName);
             }
+            handled = true;
           }
-        } else if (currentKnockTarget && currentKnockTarget.occupant && !currentKnockTarget.isInside) {
-          // Knock on the door
+        }
+
+        // 2. Planning board (hallway)
+        if (!handled && mapMod.isBoardNearby && mapMod.isBoardNearby(localPlayer.x, localPlayer.y)) {
+          if (isBoardOpen()) closeBoard();
+          else openBoard();
+          handled = true;
+        }
+
+        // (Knock is now on Space key, not E)
+      }
+      if (action === 'knock') {
+        // Space key: Knock on office door
+        if (currentKnockTarget && !currentKnockTarget.isInside) {
           const message = prompt('Knock message:') || 'Knock knock!';
           network.emit('knock:send', { targetZoneId: currentKnockTarget.zoneId, message });
-          // Confirmation
-          const confirm = document.createElement('div');
-          confirm.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(46,204,113,0.9);color:#fff;padding:12px 24px;border-radius:10px;font-weight:600;font-size:14px;z-index:999;pointer-events:none;';
-          confirm.textContent = `✅ Knock sent to ${currentKnockTarget.zoneName}!`;
-          document.body.appendChild(confirm);
-          setTimeout(() => confirm.remove(), 2000);
+          const conf = document.createElement('div');
+          conf.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(46,204,113,0.9);color:#fff;padding:12px 24px;border-radius:10px;font-weight:600;font-size:14px;z-index:999;pointer-events:none;';
+          conf.textContent = `✅ Knock sent to ${currentKnockTarget.zoneName}!`;
+          document.body.appendChild(conf);
+          setTimeout(() => conf.remove(), 2000);
         }
       }
       if (action === 'lock') {
@@ -1066,9 +1078,9 @@ function setupOnlineHud() {
   const hud = document.getElementById('online-hud');
   const list = document.getElementById('online-hud-list');
   const count = document.getElementById('online-count');
-  const toggle = document.getElementById('online-hud-toggle');
+  const btn = document.getElementById('online-btn');
 
-  toggle.addEventListener('click', () => { hud.classList.toggle('collapsed'); });
+  btn.addEventListener('click', () => { hud.classList.toggle('visible'); });
 
   // Poll for player list every 3 seconds
   function updateOnlineList() {
@@ -1194,22 +1206,22 @@ function setupFurnitureMenu() {
 
   // Tool button toggles
   toolFurniture.addEventListener('click', () => {
-    const showing = menu.style.display !== 'none';
-    menu.style.display = showing ? 'none' : 'block';
-    toolFurniture.classList.toggle('active', !showing);
+    menu.classList.toggle('visible');
+    toolFurniture.classList.toggle('active', menu.classList.contains('visible'));
   });
 
   toolPets.addEventListener('click', () => {
-    // Scroll the menu to the pets section and open it
-    menu.style.display = 'block';
+    menu.classList.add('visible');
     toolFurniture.classList.add('active');
-    const petSection = document.getElementById('pet-items');
-    if (petSection) petSection.scrollIntoView({ behavior: 'smooth' });
+    setTimeout(() => {
+      const petSection = document.getElementById('pet-items');
+      if (petSection) petSection.scrollIntoView({ behavior: 'smooth' });
+    }, 100);
   });
 
   // Close button in menu header
   toggleBtn.addEventListener('click', () => {
-    menu.style.display = 'none';
+    menu.classList.remove('visible');
     toolFurniture.classList.remove('active');
   });
 

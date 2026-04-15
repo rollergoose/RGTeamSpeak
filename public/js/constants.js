@@ -154,8 +154,9 @@ export const ZONE_TYPES = {
 };
 
 // Spawn in the hallway (row 8, center)
-export const SPAWN_X = 20 * TILE_SIZE;
-export const SPAWN_Y = 8 * TILE_SIZE;
+// Spawn at the bus stop / yard entrance
+export const SPAWN_X = 36 * TILE_SIZE;
+export const SPAWN_Y = 18 * TILE_SIZE;
 
 // === WebRTC ===
 export const ICE_SERVERS = [

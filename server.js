@@ -31,8 +31,8 @@ const officeLocks = { henrik: null, alice: null, leo: null };
 // Player levels: keyed by socketId → { steps, meetingTime, tasksCompleted }
 const playerStats = new Map();
 
-const SPAWN_X = 20 * 32;
-const SPAWN_Y = 8 * 32;
+const SPAWN_X = 36 * 32;
+const SPAWN_Y = 18 * 32;
 
 // === API endpoint for launcher status ===
 app.get('/api/status', (req, res) => {
