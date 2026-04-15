@@ -154,14 +154,9 @@ function createMap() {
 
   // ========== OUTSIDE YARD (cols 33-48, rows 10-17) ==========
   m[9][34] = T.DOOR; m[9][35] = T.DOOR;
-  fill(33, 10, 16, 8, T.GRASS);
+  fill(33, 10, 17, 8, T.GRASS);
   fill(33, 10, 2, 8, T.SIDEWALK); // path from building door down to sidewalk
-  // Fence on right side only
-  for (let r = 10; r < 18; r++) m[r][MAP_COLS - 1] = T.FENCE;
-  // Fence on left side of yard (partial — leave opening at bottom for entry)
-  for (let r = 10; r < 15; r++) m[r][32] = T.FENCE;
-  // Bottom fence with gap for entry from sidewalk
-  for (let c = 36; c < MAP_COLS - 1; c++) m[17][c] = T.FENCE;
+  // No fence — open yard
   // Picnic blankets
   fill(37, 11, 2, 2, T.RUG); fill(42, 13, 2, 2, T.RUG);
   m[11][40] = T.PLANT; m[14][45] = T.PLANT; m[12][47] = T.PLANT;
@@ -187,7 +182,7 @@ function createMap() {
   // Bus stop on the sidewalk near the yard entrance
   m[18][38] = T.COUNTER; // bus stop bench
   m[18][39] = T.COUNTER;
-  m[17][39] = T.BOARD;   // bus stop sign
+  m[17][39] = T.BUS_SIGN; // yellow bus stop sign
 
   return m;
 }
@@ -354,6 +349,21 @@ export function drawMap(ctx, camera) {
           ctx.fillStyle = colors.fill;
           ctx.fillRect(x + 2, y + 6, TILE_SIZE - 4, 4);
           ctx.fillRect(x + 2, y + 20, TILE_SIZE - 4, 4);
+          break;
+        case T.BUS_SIGN:
+          // Yellow bus stop sign with gray pole
+          ctx.fillStyle = '#888';
+          ctx.fillRect(x + 14, y + 12, 4, 20); // pole
+          ctx.fillStyle = colors.fill; // yellow
+          ctx.fillRect(x + 6, y + 2, 20, 12);
+          ctx.strokeStyle = colors.frame; // gray outline
+          ctx.lineWidth = 2;
+          ctx.strokeRect(x + 6, y + 2, 20, 12);
+          // BUS text
+          ctx.fillStyle = '#333';
+          ctx.font = 'bold 7px monospace';
+          ctx.textAlign = 'center';
+          ctx.fillText('BUS', x + 16, y + 10);
           break;
         case T.WINDOW:
           ctx.fillStyle = colors.fill;

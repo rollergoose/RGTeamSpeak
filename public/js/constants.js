@@ -27,6 +27,7 @@ export const T = {
   GRASS: 17,
   FENCE: 18,
   WINDOW: 19,
+  BUS_SIGN: 20,
 };
 
 // === Tile Colors ===
@@ -51,10 +52,11 @@ export const TILE_COLORS = {
   [T.GRASS]:         { fill: '#4a8c3f', dark: '#3a7030' },
   [T.FENCE]:         { fill: '#8b7355', post: '#6b5335' },
   [T.WINDOW]:        { fill: '#88ccee', frame: '#667788' },
+  [T.BUS_SIGN]:      { fill: '#f1c40f', frame: '#888' },
 };
 
 // === Which tiles block movement ===
-export const SOLID_TILES = new Set([T.WALL, T.DESK, T.TABLE, T.TV, T.COMPUTER, T.MEETING_TABLE, T.BOARD, T.COUNTER, T.TOILET_TILE, T.PLANT, T.FENCE, T.WINDOW]);
+export const SOLID_TILES = new Set([T.WALL, T.DESK, T.TABLE, T.TV, T.COMPUTER, T.MEETING_TABLE, T.BOARD, T.COUNTER, T.TOILET_TILE, T.PLANT, T.FENCE, T.WINDOW, T.BUS_SIGN]);
 
 // === Player ===
 export const MOVE_SPEED = 2.5;
