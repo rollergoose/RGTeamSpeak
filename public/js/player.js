@@ -105,13 +105,15 @@ export class Player {
       }
     }
 
-    // Check placed furniture collision
+    // Check placed furniture collision (only solid items near the player)
     if (furnitureCollider) {
       const items = furnitureCollider();
       const halfTile = TILE_SIZE / 2;
+      const checkRange = TILE_SIZE * 2; // only check items within 2 tiles
       for (const item of items) {
         if (!SOLID_FURNITURE.has(item.type)) continue;
-        // Simple AABB check: item occupies a 32x32 area centered on its position
+        // Quick distance check first
+        if (Math.abs(item.x - px) > checkRange || Math.abs(item.y - py) > checkRange) continue;
         const ix = item.x - halfTile;
         const iy = item.y - halfTile;
         if (px + hw - 3 > ix && px - hw + 2 < ix + TILE_SIZE &&

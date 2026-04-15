@@ -56,7 +56,7 @@ export const TILE_COLORS = {
 };
 
 // === Which tiles block movement ===
-export const SOLID_TILES = new Set([T.WALL, T.DESK, T.TABLE, T.TV, T.COMPUTER, T.MEETING_TABLE, T.BOARD, T.COUNTER, T.TOILET_TILE, T.PLANT, T.FENCE, T.WINDOW, T.BUS_SIGN]);
+export const SOLID_TILES = new Set([T.WALL, T.DESK, T.TABLE, T.TV, T.COMPUTER, T.MEETING_TABLE, T.COUNTER, T.TOILET_TILE, T.PLANT, T.FENCE, T.WINDOW, T.BUS_SIGN]);
 
 // === Player ===
 export const MOVE_SPEED = 2.5;
