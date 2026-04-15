@@ -408,16 +408,22 @@ body {
   position: absolute;
   top: 16px;
   right: 16px;
-  width: 400px;
+  width: 480px;
+  height: 360px;
   background: rgba(15,15,30,0.92);
   border-radius: 10px;
   border: 1px solid rgba(255,255,255,0.1);
-  overflow: hidden;
+  overflow: auto;
+  resize: both;
+  min-width: 320px;
+  min-height: 250px;
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.3s;
   z-index: 40;
   backdrop-filter: blur(6px);
+  display: flex;
+  flex-direction: column;
 }
 
 #youtube-overlay.visible {
@@ -500,24 +506,22 @@ body {
   margin-left: auto;
 }
 
-#youtube-overlay {
-  resize: both;
-  min-width: 300px;
-  min-height: 200px;
-}
+/* resize is now on the main #youtube-overlay rule */
 
-/* === NOTICE BOARD === */
+/* === NOTICE BOARD (cork board style) === */
 #notice-board-overlay {
   position: absolute;
-  top: 40px;
-  left: 220px;
-  width: 380px;
-  max-height: 500px;
-  background: rgba(12,12,25,0.95);
-  border-radius: 12px;
-  border: 1px solid rgba(255,180,50,0.3);
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 520px;
+  max-height: 80vh;
+  background: #c4a35a;
+  background-image: repeating-linear-gradient(45deg, transparent, transparent 8px, rgba(0,0,0,0.03) 8px, rgba(0,0,0,0.03) 16px);
+  border-radius: 8px;
+  border: 6px solid #8b6f3a;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.5), inset 0 2px 8px rgba(0,0,0,0.2);
   z-index: 55;
-  backdrop-filter: blur(6px);
   display: flex;
   flex-direction: column;
   opacity: 0;
@@ -531,106 +535,175 @@ body {
   pointer-events: auto;
 }
 
-.notice-header {
+.nb-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding: 10px 14px;
-  background: rgba(180,130,50,0.15);
-  border-bottom: 1px solid rgba(255,180,50,0.15);
-  font-size: 14px;
-  font-weight: 600;
-  color: #f0c040;
+  background: rgba(100,70,30,0.3);
+  font-size: 15px;
+  font-weight: 700;
+  color: #3a2a10;
 }
 
-.notice-notes {
-  flex: 1;
-  overflow-y: auto;
-  padding: 10px;
-  max-height: 250px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
+.nb-header-btns { display: flex; gap: 6px; }
 
-.notice-notes::-webkit-scrollbar { width: 4px; }
-.notice-notes::-webkit-scrollbar-thumb { background: rgba(255,180,50,0.2); border-radius: 2px; }
-
-.notice-note {
-  background: rgba(255,255,255,0.05);
-  border-radius: 8px;
-  padding: 10px 12px;
-  border-left: 3px solid #f0c040;
-}
-
-.notice-note.status-done { border-left-color: #2ecc71; }
-.notice-note.status-again { border-left-color: #e74c3c; }
-.notice-note.status-feedback { border-left-color: #f0c040; }
-
-.notice-note-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 4px;
-}
-
-.notice-note-author { font-size: 11px; font-weight: 600; }
-.notice-note-status {
-  font-size: 10px;
-  padding: 1px 6px;
-  border-radius: 4px;
-  background: rgba(255,255,255,0.08);
-}
-
-.notice-note-msg { font-size: 13px; color: #ccc; margin-bottom: 4px; }
-.notice-note-link { font-size: 11px; color: #3498db; word-break: break-all; }
-.notice-note-link:hover { text-decoration: underline; }
-
-.notice-note-actions {
-  display: flex;
-  gap: 4px;
-  margin-top: 6px;
-}
-
-.notice-note-actions button {
-  font-size: 10px;
-  padding: 2px 8px;
-  border: 1px solid rgba(255,255,255,0.1);
-  border-radius: 4px;
-  background: transparent;
-  color: #889;
-  cursor: pointer;
-}
-.notice-note-actions button:hover { background: rgba(255,255,255,0.08); color: #fff; }
-
-.notice-add-form {
-  padding: 10px;
-  border-top: 1px solid rgba(255,180,50,0.1);
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.notice-add-form input, .notice-add-form select {
-  padding: 7px 10px;
-  background: #1a1a2a;
-  border: 1px solid rgba(255,180,50,0.2);
+.nb-add-btn {
+  padding: 5px 14px;
+  background: #e94560;
+  border: none;
   border-radius: 6px;
   color: #fff;
   font-size: 12px;
-  outline: none;
+  font-weight: 600;
+  cursor: pointer;
 }
+.nb-add-btn:hover { background: #d63851; }
 
-.notice-add-form input:focus { border-color: #f0c040; }
+.nb-close {
+  background: none;
+  border: none;
+  color: #5a4020;
+  font-size: 18px;
+  cursor: pointer;
+  padding: 0 4px;
+}
+.nb-close:hover { color: #2a1a08; }
 
-.notice-form-row {
+/* Add form */
+#nb-add-form {
+  padding: 10px 14px;
+  background: rgba(0,0,0,0.1);
   display: flex;
+  flex-direction: column;
   gap: 6px;
 }
 
-.notice-form-row select { flex: 1; }
-.notice-form-row .ctrl-btn { background: #b08030; }
-.notice-form-row .ctrl-btn:hover { background: #c09040; }
+#nb-add-form input {
+  padding: 8px 10px;
+  background: #f5f0e0;
+  border: 1px solid #b09060;
+  border-radius: 4px;
+  color: #333;
+  font-size: 13px;
+  outline: none;
+}
+#nb-add-form input:focus { border-color: #e94560; }
+#nb-add-form input::placeholder { color: #998870; }
+
+.nb-submit {
+  padding: 8px 16px;
+  background: #e94560;
+  border: none;
+  border-radius: 6px;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.nb-submit:hover { background: #d63851; }
+
+/* Cork board — grid of sticky notes */
+.nb-board {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-content: flex-start;
+  min-height: 120px;
+}
+
+.nb-board::-webkit-scrollbar { width: 5px; }
+.nb-board::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.2); border-radius: 3px; }
+
+/* Sticky note cards */
+.nb-note {
+  width: calc(50% - 5px);
+  min-height: 100px;
+  padding: 12px;
+  border-radius: 2px;
+  position: relative;
+  box-shadow: 2px 3px 8px rgba(0,0,0,0.2);
+  display: flex;
+  flex-direction: column;
+}
+
+/* Pin on top */
+.nb-note::before {
+  content: '📌';
+  position: absolute;
+  top: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 14px;
+}
+
+/* Color by status */
+.nb-note.status-review { background: #fff9c4; color: #5a4a00; }
+.nb-note.status-done   { background: #c8e6c9; color: #1b5e20; }
+.nb-note.status-redo   { background: #ffcdd2; color: #b71c1c; }
+
+.nb-note-author {
+  font-size: 10px;
+  font-weight: 700;
+  opacity: 0.6;
+  margin-bottom: 4px;
+}
+
+.nb-note-msg {
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.4;
+  flex: 1;
+  margin-bottom: 6px;
+}
+
+.nb-note-link {
+  font-size: 11px;
+  color: #1565c0;
+  word-break: break-all;
+  margin-bottom: 6px;
+}
+.nb-note-link:hover { text-decoration: underline; }
+
+.nb-note-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 4px;
+}
+
+.nb-note-footer select {
+  padding: 2px 6px;
+  border: 1px solid rgba(0,0,0,0.15);
+  border-radius: 3px;
+  background: rgba(255,255,255,0.6);
+  font-size: 11px;
+  color: #333;
+  cursor: pointer;
+}
+
+.nb-note-footer button {
+  padding: 2px 8px;
+  border: 1px solid rgba(0,0,0,0.15);
+  border-radius: 3px;
+  background: rgba(255,255,255,0.4);
+  font-size: 10px;
+  color: #555;
+  cursor: pointer;
+}
+.nb-note-footer button:hover { background: rgba(0,0,0,0.1); color: #000; }
+
+.nb-empty {
+  width: 100%;
+  text-align: center;
+  padding: 30px 0;
+  color: #6a5030;
+  font-style: italic;
+  font-size: 13px;
+}
 
 .youtube-sync-btn {
   background: #3498db;
@@ -1480,33 +1553,10 @@ body {
 }
 
 /* === ONLINE PLAYERS HUD === */
-#online-btn {
-  position: absolute;
-  top: 8px;
-  right: 100px;
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  background: #16213e;
-  border: 2px solid rgba(255,255,255,0.1);
-  font-size: 16px;
-  cursor: pointer;
-  z-index: 110;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s;
-}
-
-#online-btn:hover {
-  border-color: #2ecc71;
-  box-shadow: 0 2px 12px rgba(46,204,113,0.3);
-}
-
 #online-hud {
   position: absolute;
-  top: 50px;
-  right: 100px;
+  top: 54px;
+  right: 8px;
   width: 220px;
   background: rgba(12,12,25,0.92);
   border-radius: 10px;
@@ -1594,62 +1644,13 @@ body {
   margin-top: -2px;
 }
 
-/* === OFFICE TOOL BUTTONS === */
-#office-tools {
-  position: absolute;
-  left: 12px;
-  top: 50%;
-  transform: translateY(-50%);
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  z-index: 30;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.3s;
-}
-
-#office-tools.visible {
-  opacity: 1;
-  pointer-events: auto;
-}
-
-.office-tool-btn {
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
-  background: rgba(12,12,25,0.88);
-  border: 1px solid rgba(255,255,255,0.1);
-  font-size: 22px;
-  cursor: pointer;
-  transition: all 0.2s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  backdrop-filter: blur(6px);
-}
-
-.office-tool-btn:hover {
-  background: rgba(233,69,96,0.2);
-  border-color: #e94560;
-  transform: scale(1.1);
-}
-
-.office-tool-btn.active {
-  background: rgba(233,69,96,0.3);
-  border-color: #e94560;
-  box-shadow: 0 0 12px rgba(233,69,96,0.3);
-}
-
-/* === FURNITURE MENU === */
+/* === FURNITURE MENU (bottom bar) === */
 #furniture-menu {
   position: absolute;
-  top: 50%;
-  left: 64px;
-  transform: translateY(-50%);
-  width: 260px;
-  max-height: 80vh;
-  overflow-y: auto;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  width: 100%;
   background: rgba(12,12,25,0.92);
   border-radius: 10px;
   border: 1px solid rgba(255,255,255,0.1);
@@ -1669,16 +1670,13 @@ body {
   pointer-events: auto;
 }
 
-#furniture-menu.collapsed .furniture-items,
-#furniture-menu.collapsed .furniture-hint {
-  display: none;
-}
+/* (pet panel merged into furniture menu) */
 
 .furniture-menu-header {
   font-size: 12px;
   font-weight: 600;
   color: #aabbcc;
-  padding: 10px 12px;
+  padding: 6px 12px;
   cursor: pointer;
   user-select: none;
   display: flex;
@@ -1690,6 +1688,12 @@ body {
   background: rgba(255,255,255,0.04);
 }
 
+.furniture-hint {
+  padding: 2px 12px 6px;
+  font-size: 9px;
+  color: #556;
+}
+
 .furniture-items {
   padding: 0 10px;
 }
@@ -1698,30 +1702,49 @@ body {
   padding: 4px 12px 10px;
 }
 
-.furn-category {
-  font-size: 9px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: #556;
-  padding: 4px 12px 2px;
-  margin-top: 4px;
+/* Tab buttons for category filtering */
+.furn-tabs {
+  display: flex;
+  gap: 2px;
+  padding: 6px 10px 4px;
+  overflow-x: auto;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
 }
 
-.furniture-items {
+.furn-tab {
+  padding: 4px 12px;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 6px;
+  background: transparent;
+  color: #889;
+  font-size: 11px;
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s;
+}
+
+.furn-tab:hover { background: rgba(255,255,255,0.06); color: #ccc; }
+.furn-tab.active { background: #e94560; color: #fff; border-color: #e94560; }
+
+/* Item grid */
+.furn-grid {
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
-  padding: 0 10px;
-  margin-bottom: 2px;
+  padding: 6px 10px;
+  max-height: 90px;
+  overflow-y: auto;
 }
 
 .furn-btn {
-  width: 36px;
-  height: 36px;
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
   border: 1px solid rgba(255,255,255,0.1);
   border-radius: 6px;
   background: rgba(255,255,255,0.04);
-  font-size: 18px;
+  font-size: 16px;
   cursor: pointer;
   transition: all 0.15s;
   display: flex;
@@ -1746,34 +1769,32 @@ body {
   line-height: 1.4;
 }
 
-/* === PLAYER STATS BUTTON === */
-#stats-btn {
-  position: absolute;
-  top: 8px;
-  right: 60px;
-  width: 36px;
-  height: 36px;
+/* === TOP-RIGHT BUTTONS (shared style) === */
+.top-btn {
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   background: #16213e;
   border: 2px solid rgba(255,255,255,0.1);
-  font-size: 16px;
+  font-size: 18px;
   cursor: pointer;
-  z-index: 110;
   display: flex;
   align-items: center;
   justify-content: center;
   transition: all 0.2s;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.3);
+  position: relative;
 }
 
-#stats-btn:hover {
-  border-color: #f1c40f;
-  box-shadow: 0 2px 12px rgba(241,196,15,0.3);
+.top-btn:hover {
+  border-color: #e94560;
+  box-shadow: 0 2px 12px rgba(233,69,96,0.3);
 }
 
 #stats-panel {
   position: absolute;
-  top: 50px;
-  right: 60px;
+  top: 54px;
+  right: 8px;
   width: 280px;
   background: rgba(12,12,25,0.95);
   border-radius: 12px;
@@ -1864,25 +1885,19 @@ body {
   border-top: 1px solid rgba(255,255,255,0.05);
 }
 
-/* === CHAT TOGGLE BUTTON === */
-#chat-toggle-btn {
+/* === TOP-RIGHT BUTTON ROW === */
+#top-right-buttons {
   position: absolute;
   top: 8px;
   right: 8px;
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  background: #16213e;
-  border: 2px solid rgba(255,255,255,0.1);
-  font-size: 20px;
-  cursor: pointer;
-  z-index: 110;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+  flex-direction: row-reverse;
+  gap: 8px;
+  z-index: 110;
 }
+
+/* === CHAT TOGGLE BUTTON === */
+/* chat-toggle-btn uses .top-btn class now */
 
 #chat-toggle-btn:hover {
   border-color: #e94560;

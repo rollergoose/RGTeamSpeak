@@ -276,7 +276,7 @@ function setupZoneCallbacks() {
 
     if (zone.type === ZONE_TYPES.OFFICE) {
       statusPanel.classList.add('visible');
-      document.getElementById('office-tools').classList.add('visible');
+      document.getElementById('furniture-menu').classList.add('visible');
     }
 
     if (zone.type === ZONE_TYPES.ARCHIVES) {
@@ -306,9 +306,7 @@ function setupZoneCallbacks() {
     if (zone.type === ZONE_TYPES.OFFICE) {
       statusPanel.classList.remove('visible');
       document.getElementById('notice-board-overlay').classList.remove('visible');
-      document.getElementById('office-tools').classList.remove('visible');
       document.getElementById('furniture-menu').classList.remove('visible');
-      document.getElementById('tool-furniture')?.classList.remove('active');
     }
   });
 }
@@ -781,15 +779,14 @@ let currentNoticeOffice = null;
 
 function setupNoticeBoard() {
   const overlay = document.getElementById('notice-board-overlay');
-  const title = document.getElementById('notice-title');
-  const notesContainer = document.getElementById('notice-notes');
+  const board = document.getElementById('notice-notes');
   const closeBtn = document.getElementById('notice-close');
+  const addToggle = document.getElementById('notice-add-toggle');
+  const addForm = document.getElementById('nb-add-form');
   const addBtn = document.getElementById('notice-add-btn');
   const msgInput = document.getElementById('notice-msg');
   const linkInput = document.getElementById('notice-link');
-  const statusSelect = document.getElementById('notice-status');
 
-  // Stop key propagation on inputs
   [msgInput, linkInput].forEach(el => {
     el.addEventListener('keydown', e => e.stopPropagation());
     el.addEventListener('focus', () => setInputFocused(true));
@@ -801,6 +798,11 @@ function setupNoticeBoard() {
     currentNoticeOffice = null;
   });
 
+  addToggle.addEventListener('click', () => {
+    addForm.style.display = addForm.style.display === 'none' ? 'flex' : 'none';
+    if (addForm.style.display !== 'none') msgInput.focus();
+  });
+
   addBtn.addEventListener('click', () => {
     if (!currentNoticeOffice) return;
     const message = msgInput.value.trim();
@@ -809,11 +811,16 @@ function setupNoticeBoard() {
       officeId: currentNoticeOffice,
       message,
       link: linkInput.value.trim(),
-      status: statusSelect.value,
+      status: 'review',
     });
     msgInput.value = '';
     linkInput.value = '';
+    addForm.style.display = 'none';
     trackFeedback();
+  });
+
+  msgInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') addBtn.click();
   });
 
   network.on('notice:sync', ({ officeId, notes }) => {
@@ -822,59 +829,48 @@ function setupNoticeBoard() {
   });
 
   function renderNotes(notes) {
-    notesContainer.innerHTML = '';
+    board.innerHTML = '';
     if (notes.length === 0) {
-      notesContainer.innerHTML = '<div style="color:#667;text-align:center;padding:20px;font-size:12px;font-style:italic">No notes posted yet</div>';
+      board.innerHTML = '<div class="nb-empty">No notices pinned yet.<br>Click "+ Add Notice" to post one.</div>';
       return;
     }
     for (const note of notes) {
       const el = document.createElement('div');
-      el.className = 'notice-note status-' + note.status;
-      const statusEmoji = note.status === 'done' ? '✅' : note.status === 'again' ? '🔄' : '📝';
+      el.className = 'nb-note status-' + (note.status || 'review');
       el.innerHTML = `
-        <div class="notice-note-header">
-          <span class="notice-note-author" style="color:${escapeHtml(note.color)}">${escapeHtml(note.author)}</span>
-          <span class="notice-note-status">${statusEmoji} ${note.status}</span>
-        </div>
-        <div class="notice-note-msg">${escapeHtml(note.message)}</div>
-        ${note.link ? `<a class="notice-note-link" href="${escapeHtml(note.link)}" target="_blank">${escapeHtml(note.link)}</a>` : ''}
-        <div class="notice-note-actions">
-          <button data-action="feedback" data-id="${note.id}">📝 Feedback</button>
-          <button data-action="done" data-id="${note.id}">✅ Done</button>
-          <button data-action="again" data-id="${note.id}">🔄 Again</button>
-          <button data-action="move" data-id="${note.id}">📤 Move</button>
+        <div class="nb-note-author">${escapeHtml(note.author)}</div>
+        <div class="nb-note-msg">${escapeHtml(note.message)}</div>
+        ${note.link ? `<a class="nb-note-link" href="${escapeHtml(note.link)}" target="_blank">🔗 ${escapeHtml(note.link.length > 40 ? note.link.slice(0, 38) + '...' : note.link)}</a>` : ''}
+        <div class="nb-note-footer">
+          <select data-id="${note.id}" class="nb-status-select">
+            <option value="review" ${note.status === 'review' ? 'selected' : ''}>📋 Review</option>
+            <option value="done" ${note.status === 'done' ? 'selected' : ''}>✅ Done</option>
+            <option value="redo" ${note.status === 'redo' ? 'selected' : ''}>🔄 Redo</option>
+          </select>
           <button data-action="remove" data-id="${note.id}">🗑️</button>
         </div>
       `;
 
-      el.querySelectorAll('.notice-note-actions button').forEach(btn => {
-        btn.addEventListener('click', () => {
-          const action = btn.dataset.action;
-          const noteId = btn.dataset.id;
-          if (action === 'remove') {
-            network.emit('notice:remove', { officeId: currentNoticeOffice, noteId });
-          } else if (action === 'move') {
-            const offices = ['henrik', 'alice', 'leo'].filter(o => o !== currentNoticeOffice);
-            const target = prompt('Move to which office? (' + offices.join(', ') + ')');
-            if (target && offices.includes(target)) {
-              const newNote = prompt('Add a note (optional):') || '';
-              network.emit('notice:move', { fromOffice: currentNoticeOffice, toOffice: target, noteId, note: newNote });
-            }
-          } else {
-            network.emit('notice:update', { officeId: currentNoticeOffice, noteId, status: action });
-          }
-        });
+      // Status change
+      el.querySelector('.nb-status-select').addEventListener('change', (e) => {
+        network.emit('notice:update', { officeId: currentNoticeOffice, noteId: e.target.dataset.id, status: e.target.value });
       });
 
-      notesContainer.appendChild(el);
+      // Remove
+      el.querySelector('[data-action="remove"]').addEventListener('click', (e) => {
+        network.emit('notice:remove', { officeId: currentNoticeOffice, noteId: e.target.dataset.id });
+      });
+
+      board.appendChild(el);
     }
   }
 }
 
 function openNoticeBoard(officeId, officeName) {
   currentNoticeOffice = officeId;
-  document.getElementById('notice-title').textContent = `📌 ${officeName} — Notice Board`;
+  document.getElementById('notice-title').textContent = `📌 ${officeName}`;
   document.getElementById('notice-board-overlay').classList.add('visible');
+  document.getElementById('nb-add-form').style.display = 'none';
   network.emit('notice:get', { officeId });
 }
 
@@ -1198,41 +1194,32 @@ let selectedFurniture = null;
 
 function setupFurnitureMenu() {
   const menu = document.getElementById('furniture-menu');
-  const buttons = document.querySelectorAll('#furniture-items .furn-btn');
+  const allBtns = document.querySelectorAll('#furniture-items .furn-btn');
+  const tabs = document.querySelectorAll('.furn-tab');
   const canvas = document.getElementById('game-canvas');
-  const toolFurniture = document.getElementById('tool-furniture');
-  const toolPets = document.getElementById('tool-pets');
-  const toggleBtn = document.getElementById('furniture-toggle');
 
-  // Tool button toggles
-  toolFurniture.addEventListener('click', () => {
-    menu.classList.toggle('visible');
-    toolFurniture.classList.toggle('active', menu.classList.contains('visible'));
+  // Category tab filtering
+  tabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      tabs.forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      const cat = tab.dataset.cat;
+      allBtns.forEach(btn => {
+        btn.style.display = (cat === 'all' || btn.dataset.cat === cat) ? 'flex' : 'none';
+      });
+    });
   });
 
-  toolPets.addEventListener('click', () => {
-    menu.classList.add('visible');
-    toolFurniture.classList.add('active');
-    setTimeout(() => {
-      const petSection = document.getElementById('pet-items');
-      if (petSection) petSection.scrollIntoView({ behavior: 'smooth' });
-    }, 100);
-  });
-
-  // Close button in menu header
-  toggleBtn.addEventListener('click', () => {
-    menu.classList.remove('visible');
-    toolFurniture.classList.remove('active');
-  });
-
-  buttons.forEach(btn => {
+  // Item selection (furniture only, not pets)
+  allBtns.forEach(btn => {
+    if (btn.classList.contains('pet-btn')) return; // pets handled separately
     btn.addEventListener('click', () => {
       const type = btn.dataset.type;
       if (selectedFurniture === type) {
         selectedFurniture = null;
         btn.classList.remove('selected');
       } else {
-        buttons.forEach(b => b.classList.remove('selected'));
+        allBtns.forEach(b => b.classList.remove('selected'));
         selectedFurniture = type;
         btn.classList.add('selected');
       }

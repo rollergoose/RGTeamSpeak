@@ -172,7 +172,8 @@ function loadVideo() {
   const newDiv = document.createElement('div');
   newDiv.id = 'yt-player-target';
   newDiv.style.width = '100%';
-  newDiv.style.height = '225px';
+  newDiv.style.flex = '1';
+  newDiv.style.minHeight = '180px';
   container.insertBefore(newDiv, controlsDiv);
   playerDiv.style.display = 'none';
 
@@ -181,7 +182,7 @@ function loadVideo() {
     playerVars: {
       autoplay: 1,
       start: start,
-      controls: 0, // hide YT controls, we have our own
+      controls: 1, // show native YT controls with seekable timeline
       modestbranding: 1,
       rel: 0,
     },

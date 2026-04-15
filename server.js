@@ -421,7 +421,7 @@ io.on('connection', (socket) => {
       author: player.username,
       message: (message || '').slice(0, 200),
       link: (link || '').slice(0, 500),
-      status: status || 'feedback', // feedback, done, again
+      status: status || 'review', // review, done, redo
       color: player.appearance.shirtColor || '#e94560',
       timestamp: Date.now(),
     };

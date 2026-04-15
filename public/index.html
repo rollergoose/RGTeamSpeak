@@ -162,8 +162,14 @@
       </div>
     </div>
 
-    <!-- Online Players Button + Panel -->
-    <button id="online-btn" title="Online Players">👥</button>
+    <!-- Top-right button row -->
+    <div id="top-right-buttons">
+      <button id="online-btn" class="top-btn" title="Online Players">👥</button>
+      <button id="stats-btn" class="top-btn" title="Player Stats">🧑</button>
+      <button id="chat-toggle-btn" class="top-btn" style="display:none">💬<span id="chat-badge" class="chat-badge" style="display:none">0</span></button>
+    </div>
+
+    <!-- Online Players Panel -->
     <div id="online-hud">
       <div class="online-hud-header">
         <span>👥 Online</span>
@@ -172,74 +178,59 @@
       <div id="online-hud-list" class="online-hud-list"></div>
     </div>
 
-    <!-- Furniture/Pet toggle buttons (left side, visible in offices) -->
-    <div id="office-tools">
-      <button id="tool-furniture" class="office-tool-btn" title="Decorate Office">🛋️</button>
-      <button id="tool-pets" class="office-tool-btn" title="Pets">🐕</button>
-    </div>
-
-    <!-- Furniture placement menu (in office zones) -->
+    <!-- Unified bottom item bar (visible in offices) -->
     <div id="furniture-menu">
-      <div class="furniture-menu-header" id="furniture-toggle">
-        <span>🛋️ Decorate Office</span>
-        <span id="furniture-arrow">✕</span>
+      <div class="furn-tabs">
+        <button class="furn-tab active" data-cat="all">All</button>
+        <button class="furn-tab" data-cat="essentials">Essentials</button>
+        <button class="furn-tab" data-cat="walls">Walls & Floors</button>
+        <button class="furn-tab" data-cat="decor">Decor</button>
+        <button class="furn-tab" data-cat="gamedev">Gamedev</button>
+        <button class="furn-tab" data-cat="pets">Pets</button>
       </div>
-      <div class="furn-category">Essentials</div>
-      <div class="furniture-items" id="furniture-items">
-        <button class="furn-btn" data-type="desk" title="Desk">🟤</button>
-        <button class="furn-btn" data-type="chair" title="Chair">🪑</button>
-        <button class="furn-btn" data-type="computer" title="Computer">💻</button>
-        <button class="furn-btn" data-type="monitor" title="Extra Monitor">🖥️</button>
-        <button class="furn-btn" data-type="table" title="Table">🪵</button>
-        <button class="furn-btn" data-type="couch" title="Couch">🛋️</button>
-        <button class="furn-btn" data-type="beanbag" title="Bean Bag">🫘</button>
-        <button class="furn-btn" data-type="bookshelf" title="Bookshelf">📚</button>
-        <button class="furn-btn" data-type="lamp" title="Lamp">💡</button>
-        <button class="furn-btn" data-type="plant" title="Plant">🌿</button>
-        <button class="furn-btn" data-type="trashcan" title="Trash Can">🗑️</button>
+      <div class="furn-grid" id="furniture-items">
+        <button class="furn-btn" data-type="desk" data-cat="essentials" title="Desk">🟤</button>
+        <button class="furn-btn" data-type="chair" data-cat="essentials" title="Chair">🪑</button>
+        <button class="furn-btn" data-type="computer" data-cat="essentials" title="Computer">💻</button>
+        <button class="furn-btn" data-type="monitor" data-cat="essentials" title="Monitor">🖥️</button>
+        <button class="furn-btn" data-type="table" data-cat="essentials" title="Table">🪵</button>
+        <button class="furn-btn" data-type="couch" data-cat="essentials" title="Couch">🛋️</button>
+        <button class="furn-btn" data-type="beanbag" data-cat="essentials" title="Bean Bag">🫘</button>
+        <button class="furn-btn" data-type="bookshelf" data-cat="essentials" title="Bookshelf">📚</button>
+        <button class="furn-btn" data-type="lamp" data-cat="essentials" title="Lamp">💡</button>
+        <button class="furn-btn" data-type="plant" data-cat="essentials" title="Plant">🌿</button>
+        <button class="furn-btn" data-type="trashcan" data-cat="essentials" title="Trash Can">🗑️</button>
+        <button class="furn-btn" data-type="wall_h" data-cat="walls" title="Wall H">➖</button>
+        <button class="furn-btn" data-type="wall_v" data-cat="walls" title="Wall V">|</button>
+        <button class="furn-btn" data-type="divider" data-cat="walls" title="Divider">🧱</button>
+        <button class="furn-btn" data-type="rug" data-cat="walls" title="Rug Maroon">🟫</button>
+        <button class="furn-btn" data-type="rug_blue" data-cat="walls" title="Rug Blue">🟦</button>
+        <button class="furn-btn" data-type="rug_green" data-cat="walls" title="Rug Green">🟩</button>
+        <button class="furn-btn" data-type="rug_gray" data-cat="walls" title="Rug Gray">⬜</button>
+        <button class="furn-btn" data-type="rug_black" data-cat="walls" title="Rug Dark">⬛</button>
+        <button class="furn-btn" data-type="poster" data-cat="decor" title="Poster">🖼️</button>
+        <button class="furn-btn" data-type="clock" data-cat="decor" title="Clock">🕐</button>
+        <button class="furn-btn" data-type="trophy" data-cat="decor" title="Trophy">🏆</button>
+        <button class="furn-btn" data-type="sign" data-cat="decor" title="Sign">🪧</button>
+        <button class="furn-btn" data-type="figurine" data-cat="decor" title="Action Figure">🧸</button>
+        <button class="furn-btn" data-type="corkboard" data-cat="decor" title="Cork Board">📌</button>
+        <button class="furn-btn" data-type="whiteboard" data-cat="decor" title="Whiteboard">📋</button>
+        <button class="furn-btn" data-type="console" data-cat="gamedev" title="Game Console">🎮</button>
+        <button class="furn-btn" data-type="easel" data-cat="gamedev" title="Canvas Easel">🎨</button>
+        <button class="furn-btn" data-type="pinball" data-cat="gamedev" title="Pinball">🕹️</button>
+        <button class="furn-btn" data-type="fridge" data-cat="gamedev" title="Monster Fridge">🧊</button>
+        <button class="furn-btn" data-type="mic" data-cat="gamedev" title="Recording Booth">🎙️</button>
+        <button class="furn-btn" data-type="server" data-cat="gamedev" title="Server Rack">⬛</button>
+        <button class="furn-btn" data-type="headphones" data-cat="gamedev" title="Headphones">🎧</button>
+        <button class="furn-btn" data-type="keyboard" data-cat="gamedev" title="Mech Keyboard">⌨️</button>
+        <button class="furn-btn" data-type="fan" data-cat="gamedev" title="Desk Fan">💨</button>
+        <button class="furn-btn pet-btn" data-pet="dog_golden" data-cat="pets" title="Golden Retriever">🐕</button>
+        <button class="furn-btn pet-btn" data-pet="dog_husky" data-cat="pets" title="Husky">🐺</button>
+        <button class="furn-btn pet-btn" data-pet="dog_corgi" data-cat="pets" title="Corgi">🦊</button>
+        <button class="furn-btn pet-btn" data-pet="dog_poodle" data-cat="pets" title="Poodle">🐩</button>
+        <button class="furn-btn pet-btn" data-pet="dog_dalmation" data-cat="pets" title="Dalmatian">🐾</button>
       </div>
-      <div class="furn-category">Walls & Floors</div>
-      <div class="furniture-items">
-        <button class="furn-btn" data-type="wall_h" title="Wall (Horizontal)">➖</button>
-        <button class="furn-btn" data-type="wall_v" title="Wall (Vertical)">|</button>
-        <button class="furn-btn" data-type="divider" title="Room Divider">🧱</button>
-        <button class="furn-btn" data-type="rug" title="Rug (Maroon)">🟫</button>
-        <button class="furn-btn" data-type="rug_blue" title="Rug (Blue)">🟦</button>
-        <button class="furn-btn" data-type="rug_green" title="Rug (Green)">🟩</button>
-        <button class="furn-btn" data-type="rug_gray" title="Rug (Gray)">⬜</button>
-        <button class="furn-btn" data-type="rug_black" title="Rug (Dark)">⬛</button>
-      </div>
-      <div class="furn-category">Decor</div>
-      <div class="furniture-items">
-        <button class="furn-btn" data-type="poster" title="Poster">🖼️</button>
-        <button class="furn-btn" data-type="clock" title="Clock">🕐</button>
-        <button class="furn-btn" data-type="trophy" title="Trophy">🏆</button>
-        <button class="furn-btn" data-type="sign" title="Sign">🪧</button>
-        <button class="furn-btn" data-type="figurine" title="Action Figure">🧸</button>
-        <button class="furn-btn" data-type="corkboard" title="Cork Board">📌</button>
-        <button class="furn-btn" data-type="whiteboard" title="Whiteboard">📋</button>
-      </div>
-      <div class="furn-category">Gamedev</div>
-      <div class="furniture-items">
-        <button class="furn-btn" data-type="console" title="Game Console">🎮</button>
-        <button class="furn-btn" data-type="easel" title="Canvas Easel">🎨</button>
-        <button class="furn-btn" data-type="pinball" title="Pinball Machine">🕹️</button>
-        <button class="furn-btn" data-type="fridge" title="Monster Fridge">🧊</button>
-        <button class="furn-btn" data-type="mic" title="Recording Booth">🎙️</button>
-        <button class="furn-btn" data-type="server" title="Server Rack">⬛</button>
-        <button class="furn-btn" data-type="headphones" title="Headphones">🎧</button>
-        <button class="furn-btn" data-type="keyboard" title="Mech Keyboard">⌨️</button>
-        <button class="furn-btn" data-type="fan" title="Desk Fan">💨</button>
-      </div>
-      <div class="furn-category">Pets</div>
-      <div class="furniture-items" id="pet-items">
-        <button class="furn-btn pet-btn" data-pet="dog_golden" title="Golden Retriever">🐕</button>
-        <button class="furn-btn pet-btn" data-pet="dog_husky" title="Husky">🐺</button>
-        <button class="furn-btn pet-btn" data-pet="dog_corgi" title="Corgi">🦊</button>
-        <button class="furn-btn pet-btn" data-pet="dog_poodle" title="Poodle">🐩</button>
-        <button class="furn-btn pet-btn" data-pet="dog_dalmation" title="Dalmatian">🐾</button>
-      </div>
-      <p class="furniture-hint">Click item → click in office. Right-click to remove. [F] Pet dog. Commands: /sit /spin /bark /come /goodboy</p>
+      <p class="furniture-hint">Click item → click in office. Right-click to remove. [F] Pet dog. /sit /spin /bark /come /goodboy</p>
     </div>
 
     <!-- Archives Chat Panel (visible in Archives room + Meeting Room) -->
@@ -255,25 +246,23 @@
       </div>
     </div>
 
-    <!-- Notice Board overlay (outside offices) -->
+    <!-- Notice Board overlay (cork board style) -->
     <div id="notice-board-overlay">
-      <div class="notice-header">
+      <div class="nb-header">
         <span id="notice-title">📌 Notice Board</span>
-        <button id="notice-close" class="ctrl-btn">✕</button>
-      </div>
-      <div id="notice-notes" class="notice-notes"></div>
-      <div class="notice-add-form">
-        <input type="text" id="notice-msg" placeholder="Message / task..." maxlength="200">
-        <input type="text" id="notice-link" placeholder="Link (optional)" maxlength="500">
-        <div class="notice-form-row">
-          <select id="notice-status">
-            <option value="feedback">📝 Feedback</option>
-            <option value="done">✅ Done</option>
-            <option value="again">🔄 Again</option>
-          </select>
-          <button id="notice-add-btn" class="ctrl-btn">Post Note</button>
+        <div class="nb-header-btns">
+          <button id="notice-add-toggle" class="nb-add-btn">+ Add Notice</button>
+          <button id="notice-close" class="nb-close">✕</button>
         </div>
       </div>
+      <!-- Add notice form (hidden by default) -->
+      <div id="nb-add-form" style="display:none">
+        <input type="text" id="notice-msg" placeholder="What do you need reviewed?" maxlength="200">
+        <input type="text" id="notice-link" placeholder="Attach a link (optional)" maxlength="500">
+        <button id="notice-add-btn" class="nb-submit">📌 Pin to Board</button>
+      </div>
+      <!-- The cork board with sticky notes -->
+      <div id="notice-notes" class="nb-board"></div>
     </div>
 
     <!-- Planning Board overlay -->
@@ -300,8 +289,7 @@
     </div>
   </div>
 
-  <!-- Player stats button -->
-  <button id="stats-btn" title="Player Stats">🧑</button>
+  <!-- Player stats panel (button is in #top-right-buttons) -->
 
   <!-- Player stats panel -->
   <div id="stats-panel" style="display:none">
@@ -342,11 +330,7 @@
     </div>
   </div>
 
-  <!-- Chat toggle button (visible when chat is minimized) -->
-  <button id="chat-toggle-btn" style="display:none">
-    💬
-    <span id="chat-badge" class="chat-badge" style="display:none">0</span>
-  </button>
+  <!-- Chat toggle is now in #top-right-buttons -->
 
   <!-- === CHAT SIDEBAR === -->
   <div id="chat-sidebar" style="display:none; position:relative;">

@@ -84,7 +84,7 @@ function createMap() {
   // Doors into hallway (row 6)
   m[6][4]  = T.DOOR; m[6][5]  = T.DOOR;   // Video
   m[6][13] = T.DOOR; m[6][14] = T.DOOR;   // Resting
-  m[6][22] = T.DOOR; m[6][23] = T.DOOR;   // Restroom
+  m[6][20] = T.DOOR; m[6][24] = T.DOOR;   // Restroom (one door per side)
   m[6][30] = T.DOOR; m[6][31] = T.DOOR;   // Kitchen
   m[6][38] = T.DOOR; m[6][39] = T.DOOR;   // Archives
 
@@ -99,18 +99,21 @@ function createMap() {
 
   // Restroom — split into His & Hers with wall at col 22
   vWall(22, 0, 7);
-  // Her side (cols 19-21): 3 toilets on top, 3 sinks on bottom
-  m[1][19] = T.TOILET_TILE; m[1][20] = T.TOILET_TILE; m[1][21] = T.TOILET_TILE;
-  m[4][19] = T.COUNTER; m[4][20] = T.COUNTER; m[4][21] = T.COUNTER;
-  // His side (cols 23-25): 3 toilets on top, 3 sinks on bottom
-  m[1][23] = T.TOILET_TILE; m[1][24] = T.TOILET_TILE; m[1][25] = T.TOILET_TILE;
-  m[4][23] = T.COUNTER; m[4][24] = T.COUNTER; m[4][25] = T.COUNTER;
+  // Her side (cols 19-21): toilets along left wall, sinks along right wall
+  m[1][19] = T.TOILET_TILE; m[2][19] = T.TOILET_TILE; m[3][19] = T.TOILET_TILE;
+  m[1][21] = T.COUNTER; m[2][21] = T.COUNTER; m[3][21] = T.COUNTER;
+  // His side (cols 23-25): toilets along right wall, sinks along left wall
+  m[1][25] = T.TOILET_TILE; m[2][25] = T.TOILET_TILE; m[3][25] = T.TOILET_TILE;
+  m[1][23] = T.COUNTER; m[2][23] = T.COUNTER; m[3][23] = T.COUNTER;
 
-  // Kitchen — horizontal table with chairs, 1 tile free around
-  fill(28, 1, 4, 1, T.COUNTER); fill(33, 1, 1, 3, T.COUNTER);
-  fill(29, 3, 3, 1, T.TABLE); // horizontal table
-  m[2][29] = T.CHAIR; m[2][30] = T.CHAIR; m[2][31] = T.CHAIR; // chairs above
-  m[4][29] = T.CHAIR; m[4][30] = T.CHAIR; m[4][31] = T.CHAIR; // chairs below
+  // Kitchen — L-shaped counter on right, table shifted left
+  // Counter L-form: along top-right and down the right wall
+  fill(32, 1, 2, 1, T.COUNTER); // top right
+  m[2][33] = T.COUNTER; m[3][33] = T.COUNTER; m[4][33] = T.COUNTER; // right wall down
+  // Table 1 step left
+  fill(28, 3, 3, 1, T.TABLE);
+  m[2][28] = T.CHAIR; m[2][29] = T.CHAIR; m[2][30] = T.CHAIR;
+  m[4][28] = T.CHAIR; m[4][29] = T.CHAIR; m[4][30] = T.CHAIR;
   m[1][27] = T.PLANT;
 
   // Archives

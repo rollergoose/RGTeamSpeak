@@ -909,7 +909,7 @@ function checkKnockProximity() {
     if (!zone) continue;
 
     const dist = distToRect(px, py, zone.x, zone.y, zone.w, zone.h);
-    if (dist < 2.5 * TILE_SIZE) {
+    if (dist < 1.2 * TILE_SIZE) {
       let occupant = null;
       for (const rp of remotePlayers.values()) {
         if (rp.zone === zoneId) { occupant = rp.username; break; }
