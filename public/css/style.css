@@ -1106,17 +1106,17 @@ body {
 #furniture-menu {
   position: absolute;
   bottom: 20px;
-  left: 16px;
+  right: 320px;
   width: 240px;
   background: rgba(12,12,25,0.92);
   border-radius: 10px;
   border: 1px solid rgba(255,255,255,0.1);
-  padding: 10px;
   z-index: 30;
   backdrop-filter: blur(6px);
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.3s;
+  overflow: hidden;
 }
 
 #furniture-menu.visible {
@@ -1124,11 +1124,33 @@ body {
   pointer-events: auto;
 }
 
+#furniture-menu.collapsed .furniture-items,
+#furniture-menu.collapsed .furniture-hint {
+  display: none;
+}
+
 .furniture-menu-header {
   font-size: 12px;
   font-weight: 600;
   color: #aabbcc;
-  margin-bottom: 8px;
+  padding: 10px 12px;
+  cursor: pointer;
+  user-select: none;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.furniture-menu-header:hover {
+  background: rgba(255,255,255,0.04);
+}
+
+.furniture-items {
+  padding: 0 10px;
+}
+
+.furniture-hint {
+  padding: 4px 12px 10px;
 }
 
 .furniture-items {

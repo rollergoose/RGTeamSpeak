@@ -710,6 +710,14 @@ function setupFurnitureMenu() {
   const menu = document.getElementById('furniture-menu');
   const buttons = document.querySelectorAll('.furn-btn');
   const canvas = document.getElementById('game-canvas');
+  const toggleBtn = document.getElementById('furniture-toggle');
+  const arrow = document.getElementById('furniture-arrow');
+
+  // Toggle open/close
+  toggleBtn.addEventListener('click', () => {
+    menu.classList.toggle('collapsed');
+    arrow.textContent = menu.classList.contains('collapsed') ? '▶' : '▼';
+  });
 
   buttons.forEach(btn => {
     btn.addEventListener('click', () => {
@@ -730,17 +738,13 @@ function setupFurnitureMenu() {
     if (!selectedFurniture) return;
     if (!localPlayer) return;
 
-    // Check we're in our own office
-    const currentZone = getCurrentZoneFromZones();
-    if (!currentZone || currentZone.type !== ZONE_TYPES.OFFICE) return;
+    const cam = getCamera();
+    if (!cam) { console.warn('No camera'); return; }
 
     // Get world position from click
     const rect = canvas.getBoundingClientRect();
-    const camModule = getCameraFromGame();
-    if (!camModule) return;
-
-    const worldX = e.clientX - rect.left + camModule.x;
-    const worldY = e.clientY - rect.top + camModule.y;
+    const worldX = e.clientX - rect.left + cam.x;
+    const worldY = e.clientY - rect.top + cam.y;
 
     network.emit('furniture:place', {
       type: selectedFurniture,
@@ -753,10 +757,30 @@ function setupFurnitureMenu() {
     document.querySelectorAll('.furn-btn').forEach(b => b.classList.remove('selected'));
   });
 
-  // Right-click to remove furniture
+  // Right-click to remove furniture (find nearest placed item)
   canvas.addEventListener('contextmenu', (e) => {
     e.preventDefault();
-    // TODO: detect if right-clicking on a placed furniture item and remove it
+    if (!localPlayer || !localPlayer.officeFurniture) return;
+    const cam = getCamera();
+    if (!cam) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const worldX = e.clientX - rect.left + cam.x;
+    const worldY = e.clientY - rect.top + cam.y;
+
+    // Find the closest item within 32px
+    let closest = null;
+    let closestDist = 32;
+    for (const item of localPlayer.officeFurniture) {
+      const dist = Math.sqrt((item.x - worldX) ** 2 + (item.y - worldY) ** 2);
+      if (dist < closestDist) {
+        closest = item;
+        closestDist = dist;
+      }
+    }
+    if (closest) {
+      network.emit('furniture:remove', { itemId: closest.id });
+    }
   });
 
   // Show/hide menu based on zone

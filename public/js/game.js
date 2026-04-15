@@ -107,6 +107,7 @@ function gameLoop(timestamp) {
 
   drawMap(ctx, camera);
   drawZoneLabels(ctx, camera);
+  drawPlacedFurniture(ctx, camera);
 
   const allChars = [];
 
@@ -225,6 +226,47 @@ function drawInteractHint(ctx, nearBoard) {
   ctx.strokeRect(cx - tw / 2 - 12, cy - 13, tw + 24, 22);
   ctx.fillStyle = '#fff';
   ctx.fillText(text, cx, cy + 2);
+  ctx.textAlign = 'center';
+}
+
+// ========== PLACED FURNITURE RENDERING ==========
+const FURNITURE_EMOJIS = {
+  chair: '🪑', table: '🪵', couch: '🛋️', plant: '🌿',
+  bookshelf: '📚', whiteboard: '📋', lamp: '💡', rug: '🟫',
+  poster: '🖼️', clock: '🕐', trophy: '🏆', sign: '🪧',
+};
+
+function drawPlacedFurniture(ctx, camera) {
+  // Collect all furniture from all players
+  const allFurniture = [];
+  if (localPlayer && localPlayer.officeFurniture) {
+    for (const item of localPlayer.officeFurniture) allFurniture.push(item);
+  }
+  for (const rp of remotePlayers.values()) {
+    if (rp.officeFurniture) {
+      for (const item of rp.officeFurniture) allFurniture.push(item);
+    }
+  }
+
+  ctx.font = '20px serif';
+  ctx.textAlign = 'center';
+  for (const item of allFurniture) {
+    const sx = item.x - camera.x;
+    const sy = item.y - camera.y;
+
+    // Only draw if visible
+    if (sx < -40 || sx > camera.w + 40 || sy < -40 || sy > camera.h + 40) continue;
+
+    // Draw a small background circle
+    ctx.fillStyle = 'rgba(0,0,0,0.2)';
+    ctx.beginPath();
+    ctx.arc(sx, sy, 14, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Draw the emoji
+    const emoji = FURNITURE_EMOJIS[item.type] || '📦';
+    ctx.fillText(emoji, sx, sy + 7);
+  }
   ctx.textAlign = 'center';
 }
 
