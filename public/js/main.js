@@ -607,7 +607,6 @@ function setupGameCallbacks() {
         updateLockUI();
       } else {
         knockArea.classList.remove('visible');
-        document.getElementById('knock-overlay').classList.remove('visible');
       }
     },
     keyAction: (action) => {
