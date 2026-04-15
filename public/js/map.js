@@ -152,12 +152,17 @@ function createMap() {
   m[12][28] = T.CHAIR; m[13][28] = T.CHAIR;
   m[10][22] = T.PLANT; m[10][30] = T.PLANT;
 
-  // ========== OUTSIDE YARD (cols 33-48, rows 10-15) ==========
+  // ========== OUTSIDE YARD (cols 33-48, rows 10-17) ==========
   m[9][34] = T.DOOR; m[9][35] = T.DOOR;
-  fill(33, 10, 16, 6, T.GRASS);
-  fill(33, 10, 2, 6, T.SIDEWALK);
-  for (let r = 10; r < 16; r++) m[r][MAP_COLS - 1] = T.FENCE;
-  for (let c = 33; c < MAP_COLS; c++) m[16][c] = T.FENCE;
+  fill(33, 10, 16, 8, T.GRASS);
+  fill(33, 10, 2, 8, T.SIDEWALK); // path from building door down to sidewalk
+  // Fence on right side only
+  for (let r = 10; r < 18; r++) m[r][MAP_COLS - 1] = T.FENCE;
+  // Fence on left side of yard (partial — leave opening at bottom for entry)
+  for (let r = 10; r < 15; r++) m[r][32] = T.FENCE;
+  // Bottom fence with gap for entry from sidewalk
+  for (let c = 36; c < MAP_COLS - 1; c++) m[17][c] = T.FENCE;
+  // Picnic blankets
   fill(37, 11, 2, 2, T.RUG); fill(42, 13, 2, 2, T.RUG);
   m[11][40] = T.PLANT; m[14][45] = T.PLANT; m[12][47] = T.PLANT;
 
