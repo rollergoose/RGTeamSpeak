@@ -23,6 +23,7 @@ let youtubeState = null;         // { url, videoId, startedAt, setBy }
 let serverRunning = false;
 let planningBoard = [];          // [{ id, assignee, task, duration, column, color }]
 const officePets = new Map();    // petId -> { id, type, name, x, y, ownerId, zone }
+const sessionChat = [];          // in-memory chat messages (cleared on restart)
 
 const SPAWN_X = 25 * 32;
 const SPAWN_Y = 8 * 32;
@@ -78,8 +79,6 @@ io.on('connection', (socket) => {
       }
     }
 
-    const chatHistory = db.getHistory(100);
-
     socket.emit('auth:ok', {
       id: socket.id,
       x: SPAWN_X,
@@ -89,8 +88,8 @@ io.on('connection', (socket) => {
       planningBoard,
     });
 
-    // Send chat history
-    socket.emit('chat:history', { messages: chatHistory });
+    // Send session chat (in-memory only)
+    socket.emit('chat:history', { messages: sessionChat });
 
     // Send existing pets
     socket.emit('pet:sync', { allPets: [...officePets.values()] });
@@ -119,19 +118,42 @@ io.on('connection', (socket) => {
     socket.broadcast.emit('zone:changed', { playerId: socket.id, zoneId });
   });
 
-  // --- Chat ---
+  // --- Main Chat (session-only, in-memory) ---
   socket.on('chat:send', ({ message }) => {
+    const player = players.get(socket.id);
+    if (!player || !message || message.length > 500) return;
+
+    const msg = {
+      id: crypto.randomUUID(),
+      username: player.username,
+      color: player.appearance.shirtColor || '#e94560',
+      message,
+      timestamp: Date.now(),
+    };
+    sessionChat.push(msg);
+    // Keep last 200 messages in memory
+    if (sessionChat.length > 200) sessionChat.shift();
+    io.emit('chat:message', msg);
+  });
+
+  // --- Archives Chat (persistent, stored in SQLite) ---
+  socket.on('archive:send', ({ message }) => {
     const player = players.get(socket.id);
     if (!player || !message || message.length > 500) return;
 
     const id = crypto.randomUUID();
     const msg = db.addMessage(id, player.username, player.appearance.shirtColor || '#e94560', message);
-    io.emit('chat:message', msg);
+    io.emit('archive:message', msg);
   });
 
-  socket.on('chat:history-before', ({ before }) => {
+  socket.on('archive:history', () => {
+    const messages = db.getHistory(200);
+    socket.emit('archive:history', { messages });
+  });
+
+  socket.on('archive:history-before', ({ before }) => {
     const messages = db.getHistoryBefore(before, 50);
-    socket.emit('chat:history', { messages, hasMore: messages.length === 50 });
+    socket.emit('archive:history', { messages, hasMore: messages.length === 50 });
   });
 
   // --- Voice signaling ---

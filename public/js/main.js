@@ -225,6 +225,8 @@ function setupZoneCallbacks() {
       meetingControls.classList.add('visible');
       localPlayer.status.inMeeting = true;
       joinVoice();
+      // Archives accessible from meeting room too
+      showArchives();
     }
 
     if (zone.type === ZONE_TYPES.CHILL) {
@@ -235,6 +237,10 @@ function setupZoneCallbacks() {
       statusPanel.classList.add('visible');
       document.getElementById('furniture-menu').classList.add('visible');
     }
+
+    if (zone.type === ZONE_TYPES.ARCHIVES) {
+      showArchives();
+    }
   });
 
   onZoneLeave((zone) => {
@@ -244,10 +250,15 @@ function setupZoneCallbacks() {
       localPlayer.status.muted = false;
       leaveVoice();
       if (getIsSharing()) stopScreenShare();
+      hideArchives();
     }
 
     if (zone.type === ZONE_TYPES.CHILL) {
       leaveChillZone();
+    }
+
+    if (zone.type === ZONE_TYPES.ARCHIVES) {
+      hideArchives();
     }
 
     if (zone.type === ZONE_TYPES.OFFICE) {
@@ -537,6 +548,92 @@ function requireMap() {
 import('./map.js').then(m => { _mapModule = m; });
 
 // === Screenshare window: drag, resize, maximize ===
+// === Archives Chat ===
+let archivesInitialized = false;
+
+function showArchives() {
+  const panel = document.getElementById('archives-panel');
+  panel.classList.add('visible');
+
+  if (!archivesInitialized) {
+    archivesInitialized = true;
+    const input = document.getElementById('archives-input');
+    const sendBtn = document.getElementById('archives-send');
+    const messages = document.getElementById('archives-messages');
+
+    input.addEventListener('keydown', (e) => {
+      e.stopPropagation();
+      if (e.key === 'Enter') sendBtn.click();
+      if (e.key === 'Escape') input.blur();
+    });
+    input.addEventListener('focus', () => setInputFocused(true));
+    input.addEventListener('blur', () => setInputFocused(false));
+
+    sendBtn.addEventListener('click', () => {
+      const text = input.value.trim();
+      if (!text) return;
+      network.emit('archive:send', { message: text });
+      input.value = '';
+    });
+
+    network.on('archive:message', (msg) => {
+      appendArchiveMessage(msg);
+    });
+
+    network.on('archive:history', ({ messages: msgs }) => {
+      // History comes newest-first, reverse for display
+      const container = document.getElementById('archives-messages');
+      for (const msg of msgs.reverse()) {
+        appendArchiveMessage(msg, true);
+      }
+    });
+  }
+
+  // Request history each time we open
+  network.emit('archive:history', {});
+}
+
+function hideArchives() {
+  document.getElementById('archives-panel').classList.remove('visible');
+}
+
+function appendArchiveMessage(msg, prepend = false) {
+  const container = document.getElementById('archives-messages');
+
+  // Avoid duplicates
+  if (container.querySelector(`[data-id="${msg.id}"]`)) return;
+
+  const el = document.createElement('div');
+  el.className = 'archive-msg';
+  el.dataset.id = msg.id;
+
+  const time = document.createElement('span');
+  time.className = 'chat-time';
+  const d = new Date(msg.timestamp);
+  time.textContent = d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+  const name = document.createElement('span');
+  name.className = 'chat-name';
+  name.textContent = msg.username;
+  if (msg.color) name.style.color = msg.color;
+
+  const text = document.createElement('span');
+  text.className = 'chat-text';
+  text.textContent = ' ' + msg.message;
+
+  el.appendChild(time);
+  el.appendChild(document.createTextNode(' '));
+  el.appendChild(name);
+  el.appendChild(text);
+
+  if (prepend) {
+    container.prepend(el);
+  } else {
+    container.appendChild(el);
+    container.scrollTop = container.scrollHeight;
+  }
+}
+
 function setupScreenShareWindow() {
   const overlay = document.getElementById('screenshare-overlay');
   const handle = document.getElementById('screenshare-drag-handle');

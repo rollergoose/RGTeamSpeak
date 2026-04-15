@@ -91,6 +91,7 @@ export const ZONE_TYPES = {
   RECEPTION: 'reception',
   TOILET: 'toilet',
   RESTING: 'resting',
+  ARCHIVES: 'archives',
 };
 
 // Spawn in the hallway (row 8, center)

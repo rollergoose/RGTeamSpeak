@@ -26,6 +26,7 @@ export const ZONES = [
   { id: 'toilet',    name: 'Restroom',       type: ZONE_TYPES.TOILET,   tx: 19, ty: 1,  tw: 7,  th: 5 },
   { id: 'meeting',   name: 'Meeting Room',   type: ZONE_TYPES.MEETING,  tx: 27, ty: 1,  tw: 8,  th: 5 },
   { id: 'kitchen',   name: 'Kitchen',        type: ZONE_TYPES.KITCHEN,  tx: 36, ty: 1,  tw: 7,  th: 5 },
+  { id: 'archives',  name: 'Archives',       type: ZONE_TYPES.ARCHIVES, tx: 44, ty: 1,  tw: 5,  th: 5 },
 
   // HALLWAY (horizontal band)
   { id: 'hallway',   name: 'Hallway',        type: ZONE_TYPES.HALLWAY,  tx: 1,  ty: 7,  tw: 48, th: 2 },
@@ -120,6 +121,20 @@ function createMap() {
   m[2][38] = T.CHAIR; m[4][38] = T.CHAIR;
   m[2][39] = T.CHAIR; m[4][39] = T.CHAIR;
   m[4][36] = T.PLANT;
+
+  // ========== ARCHIVES (cols 44-48, rows 1-5) ==========
+  // Left wall (shared with kitchen's right wall area)
+  vWall(43, 0, 7);  // already exists as kitchen right wall — reinforce
+  // Door from archives to hallway
+  m[6][46] = T.DOOR; m[6][47] = T.DOOR;
+  // Bookshelves along walls (representing stored records)
+  m[1][44] = T.DESK; m[1][45] = T.DESK; m[1][46] = T.DESK; m[1][47] = T.DESK;
+  m[2][48] = T.DESK;
+  m[3][48] = T.DESK;
+  // Reading desk
+  m[3][45] = T.TABLE;
+  m[4][45] = T.CHAIR;
+  m[2][44] = T.PLANT;
 
   // ========== HALLWAY (rows 7-8) — open space ==========
   // Planning board on the hallway top wall

@@ -1036,6 +1036,111 @@ body {
   background: #d63851;
 }
 
+/* === ARCHIVES PANEL === */
+#archives-panel {
+  position: absolute;
+  top: 40px;
+  right: 320px;
+  width: 350px;
+  max-height: 500px;
+  background: rgba(12,12,25,0.94);
+  border-radius: 12px;
+  border: 1px solid rgba(233,180,69,0.3);
+  z-index: 35;
+  backdrop-filter: blur(6px);
+  display: flex;
+  flex-direction: column;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s;
+  overflow: hidden;
+}
+
+#archives-panel.visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.archives-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  background: rgba(139,115,85,0.2);
+  border-bottom: 1px solid rgba(233,180,69,0.15);
+  font-size: 14px;
+  font-weight: 600;
+  color: #e8c96a;
+}
+
+.archives-hint {
+  font-size: 10px;
+  color: #8b7355;
+  font-weight: 400;
+}
+
+.archives-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-height: 150px;
+  max-height: 350px;
+}
+
+.archives-messages::-webkit-scrollbar { width: 5px; }
+.archives-messages::-webkit-scrollbar-thumb { background: rgba(233,180,69,0.2); border-radius: 3px; }
+
+.archive-msg {
+  font-size: 12px;
+  line-height: 1.4;
+  padding: 4px 0;
+  word-break: break-word;
+  border-bottom: 1px solid rgba(255,255,255,0.03);
+}
+
+.archive-msg .chat-time { color: #8b7355; }
+.archive-msg .chat-name { color: #e8c96a; }
+
+.archives-input-bar {
+  display: flex;
+  padding: 8px;
+  gap: 6px;
+  border-top: 1px solid rgba(233,180,69,0.15);
+}
+
+#archives-input {
+  flex: 1;
+  padding: 7px 10px;
+  background: #1a1a2a;
+  border: 1px solid rgba(233,180,69,0.2);
+  border-radius: 6px;
+  color: #fff;
+  font-size: 12px;
+  outline: none;
+}
+
+#archives-input:focus {
+  border-color: #e8c96a;
+}
+
+#archives-send {
+  padding: 7px 14px;
+  background: #8b7355;
+  border: none;
+  border-radius: 6px;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+#archives-send:hover {
+  background: #a08660;
+}
+
 /* === ONLINE PLAYERS HUD === */
 #online-hud {
   position: absolute;
