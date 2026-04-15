@@ -1,0 +1,95 @@
+import { MOVE_SPEED, PLAYER_WIDTH, PLAYER_HEIGHT, TILE_SIZE, MAP_WIDTH, MAP_HEIGHT } from './constants.js';
+import { isSolid } from './map.js';
+
+export class Player {
+  constructor(x, y, appearance) {
+    this.x = x;
+    this.y = y;
+    this.appearance = appearance;
+    this.direction = 'down';
+    this.isMoving = false;
+    this.animFrame = 0;
+    this.animTimer = 0;
+    this.username = '';
+  }
+
+  update(keysDown, dt) {
+    let dx = 0;
+    let dy = 0;
+
+    if (keysDown.has('ArrowUp') || keysDown.has('w')) dy -= 1;
+    if (keysDown.has('ArrowDown') || keysDown.has('s')) dy += 1;
+    if (keysDown.has('ArrowLeft') || keysDown.has('a')) dx -= 1;
+    if (keysDown.has('ArrowRight') || keysDown.has('d')) dx += 1;
+
+    // Normalize diagonal
+    if (dx !== 0 && dy !== 0) {
+      const inv = 1 / Math.SQRT2;
+      dx *= inv;
+      dy *= inv;
+    }
+
+    const speed = MOVE_SPEED;
+    const moveX = dx * speed;
+    const moveY = dy * speed;
+
+    this.isMoving = dx !== 0 || dy !== 0;
+
+    if (this.isMoving) {
+      if (Math.abs(dx) >= Math.abs(dy)) {
+        this.direction = dx > 0 ? 'right' : 'left';
+      } else {
+        this.direction = dy > 0 ? 'down' : 'up';
+      }
+    }
+
+    // Axis-separated collision
+    if (moveX !== 0) {
+      const newX = this.x + moveX;
+      if (!this.collides(newX, this.y)) {
+        this.x = newX;
+      }
+    }
+    if (moveY !== 0) {
+      const newY = this.y + moveY;
+      if (!this.collides(this.x, newY)) {
+        this.y = newY;
+      }
+    }
+
+    // Clamp to map bounds
+    this.x = Math.max(PLAYER_WIDTH / 2, Math.min(MAP_WIDTH - PLAYER_WIDTH / 2, this.x));
+    this.y = Math.max(PLAYER_HEIGHT / 2, Math.min(MAP_HEIGHT - PLAYER_HEIGHT / 2, this.y));
+
+    // Walk animation
+    if (this.isMoving) {
+      this.animTimer += dt;
+      if (this.animTimer > 200) {
+        this.animFrame = this.animFrame === 0 ? 1 : 0;
+        this.animTimer = 0;
+      }
+    } else {
+      this.animFrame = 0;
+      this.animTimer = 0;
+    }
+  }
+
+  collides(px, py) {
+    // Check the 4 corners of the collision box
+    const hw = PLAYER_WIDTH / 2;
+    const hh = PLAYER_HEIGHT / 2;
+    const corners = [
+      [px - hw + 2, py - hh + 2],   // top-left (slightly inset)
+      [px + hw - 3, py - hh + 2],   // top-right
+      [px - hw + 2, py + hh - 3],   // bottom-left
+      [px + hw - 3, py + hh - 3],   // bottom-right
+    ];
+
+    for (const [cx, cy] of corners) {
+      const col = Math.floor(cx / TILE_SIZE);
+      const row = Math.floor(cy / TILE_SIZE);
+      if (isSolid(col, row)) return true;
+    }
+    return false;
+  }
+}

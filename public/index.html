@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RGTeamSpeak — Virtual Office</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="icon" href="/assets/logo.png">
+</head>
+<body>
+
+  <!-- === LOGIN / CHARACTER CUSTOMIZATION === -->
+  <div id="login-screen">
+    <div class="login-card">
+      <img src="/assets/logo.png" alt="Rollergoose" class="login-logo">
+      <h2>Virtual Office</h2>
+
+      <div class="login-form">
+        <label>Username</label>
+        <input type="text" id="username-input" maxlength="20" placeholder="Enter your name..." autofocus>
+      </div>
+
+      <div class="customization">
+        <h3>Customize Your Character</h3>
+        <div class="preview-row">
+          <canvas id="char-preview" width="80" height="80"></canvas>
+        </div>
+        <div class="custom-section">
+          <label>Skin Tone</label>
+          <div id="skin-options" class="palette"></div>
+        </div>
+        <div class="custom-section">
+          <label>Hair Style</label>
+          <div id="hair-style-options" class="hair-styles"></div>
+        </div>
+        <div class="custom-section">
+          <label>Hair Color</label>
+          <div id="hair-color-options" class="palette"></div>
+        </div>
+        <div class="custom-section">
+          <label>Shirt Color</label>
+          <div id="shirt-options" class="palette"></div>
+        </div>
+        <div class="custom-section">
+          <label>Pants Color</label>
+          <div id="pants-options" class="palette"></div>
+        </div>
+      </div>
+
+      <button id="join-btn">Enter Office</button>
+    </div>
+  </div>
+
+  <!-- === MAIN APP === -->
+  <div id="game-container" style="display:none">
+    <canvas id="game-canvas"></canvas>
+
+    <!-- Zone label -->
+    <div id="zone-label" style="display:none"></div>
+
+    <!-- Meeting room controls -->
+    <div id="meeting-controls">
+      <button id="btn-mute" class="ctrl-btn active">🎙️ Mute</button>
+      <button id="btn-screenshare" class="ctrl-btn">🖥️ Share Screen</button>
+      <select id="bw-select" style="display:none"></select>
+    </div>
+
+    <!-- Screen share viewer (draggable + maximizable) -->
+    <div id="screenshare-overlay">
+      <div class="screenshare-header" id="screenshare-drag-handle">
+        <span id="screenshare-title">Screen Share</span>
+        <div class="screenshare-btns">
+          <button id="screenshare-maximize" title="Maximize">⬜</button>
+          <button id="screenshare-minimize" title="Restore" style="display:none">🗗</button>
+          <button id="screenshare-close" title="Close">✕</button>
+        </div>
+      </div>
+      <video id="screenshare-video" autoplay playsinline></video>
+      <div class="screenshare-resize-handle" id="screenshare-resize"></div>
+    </div>
+
+    <!-- YouTube overlay (chill zone) -->
+    <div id="youtube-overlay">
+      <div class="youtube-header">
+        <span>📺 TV Area</span>
+        <button id="youtube-clear">Turn Off</button>
+      </div>
+      <iframe id="youtube-iframe" allow="autoplay; encrypted-media" allowfullscreen style="display:none"></iframe>
+      <p id="youtube-info">No video playing. Paste a YouTube URL below!</p>
+      <input type="text" id="youtube-input" placeholder="Paste YouTube URL...">
+    </div>
+
+    <!-- Status panel (office zones) -->
+    <div id="status-panel">
+      <div class="status-panel-header">Set Your Status</div>
+      <input type="text" id="status-input" placeholder="What are you working on?" maxlength="100">
+      <input type="text" id="status-link" placeholder="Link (optional, e.g. drive URL)" maxlength="500">
+      <div class="status-panel-btns">
+        <button id="status-set-btn" class="ctrl-btn">Set Status</button>
+        <button id="status-clear-btn" class="ctrl-btn">Clear</button>
+      </div>
+    </div>
+
+    <!-- Knock area (near offices) -->
+    <div id="knock-area">
+      <span id="knock-target-name">Knock</span>
+      <button id="knock-btn" class="ctrl-btn">🚪 Knock</button>
+      <div id="knock-overlay">
+        <input type="text" id="knock-input" placeholder="Message (e.g. meeting in 5)" maxlength="200">
+        <button id="knock-send-btn" class="ctrl-btn">Send</button>
+      </div>
+    </div>
+
+    <!-- Knock notifications (small, top) -->
+    <div id="knock-notifications"></div>
+
+    <!-- Knock BIG center popup -->
+    <div id="knock-popup-overlay">
+      <div class="knock-popup">
+        <div class="knock-popup-icon">🚪</div>
+        <div class="knock-popup-title">Someone's at your door!</div>
+        <div class="knock-popup-from"><span id="knock-popup-name">???</span> knocked</div>
+        <div class="knock-popup-message" id="knock-popup-msg">...</div>
+        <button id="knock-popup-dismiss" class="knock-popup-btn">Got it</button>
+      </div>
+    </div>
+
+    <!-- Planning Board overlay -->
+    <div id="board-overlay">
+      <div class="board-header">
+        <span>📋 Planning Board</span>
+        <div>
+          <button id="board-add-btn" class="ctrl-btn">+ Add Card</button>
+          <button id="board-close" class="ctrl-btn">✕</button>
+        </div>
+      </div>
+      <div class="board-content">
+        <div class="board-columns">
+          <div class="board-column">
+            <div class="board-column-title">🔵 Doing Now</div>
+            <div id="board-now" class="board-cards"></div>
+          </div>
+          <div class="board-column">
+            <div class="board-column-title">⏭️ Up Next</div>
+            <div id="board-next" class="board-cards"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- === CHAT SIDEBAR === -->
+  <div id="chat-sidebar" style="display:none">
+    <div class="chat-header">
+      <img src="/assets/logo.png" alt="Rollergoose" class="chat-logo">
+      <span>Chat</span>
+    </div>
+    <div id="chat-messages"></div>
+    <div class="chat-input-bar">
+      <input type="text" id="chat-input" placeholder="Type a message..." maxlength="500">
+      <button id="chat-send">Send</button>
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script type="module" src="/js/main.js"></script>
+</body>
+</html>

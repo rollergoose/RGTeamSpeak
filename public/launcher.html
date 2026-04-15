@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RGTeamSpeak</title>
+  <link rel="stylesheet" href="./css/launcher.css">
+</head>
+<body>
+
+  <!-- Custom title bar -->
+  <div class="titlebar">
+    <span class="titlebar-text">RGTeamSpeak</span>
+  </div>
+
+  <div class="launcher">
+
+    <!-- Logo + Branding -->
+    <div class="hero">
+      <img src="./assets/logo.png" alt="Rollergoose" class="logo">
+      <div class="hero-subtitle">Virtual Office</div>
+    </div>
+
+    <!-- Mode Tabs -->
+    <div class="tabs">
+      <button class="tab active" id="tab-host" data-mode="host">Host</button>
+      <button class="tab" id="tab-join" data-mode="join">Join</button>
+    </div>
+
+    <!-- ===== HOST MODE ===== -->
+    <div id="mode-host">
+
+      <!-- Status Indicator -->
+      <div id="status-bar" class="status-bar offline">
+        <div class="status-dot-wrap"><span id="status-dot" class="status-dot"></span></div>
+        <span id="status-text">Server Offline</span>
+      </div>
+
+      <!-- Server Config Card -->
+      <div class="card" id="config-card">
+        <div class="card-header">Server Settings</div>
+        <div class="field-row">
+          <div class="field">
+            <label for="server-name">Server Name</label>
+            <input type="text" id="server-name" value="Rollergoose Office" maxlength="40" spellcheck="false">
+          </div>
+        </div>
+        <div class="field-row">
+          <div class="field" style="flex:0 0 120px">
+            <label for="port-input">Port</label>
+            <input type="number" id="port-input" value="4000" min="1024" max="65535">
+          </div>
+          <div class="field" style="flex:1">
+            <label>&nbsp;</label>
+            <button id="btn-toggle" class="btn-primary">
+              <span id="btn-toggle-icon" class="btn-icon">&#9654;</span>
+              <span id="btn-toggle-text">Start Server</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Server Info Card (shown when running) -->
+      <div class="card" id="info-card" style="display:none">
+        <div class="card-header">Connection Info</div>
+        <div class="info-grid">
+          <div class="info-item">
+            <div class="info-label">Your IP</div>
+            <div class="info-value mono" id="ip-display">—</div>
+          </div>
+          <div class="info-item full-width clickable" id="link-row">
+            <div class="info-label">Share this link with your team</div>
+            <div class="info-value link-box" id="link-display">—</div>
+            <div class="copy-toast" id="copy-toast">Copied!</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Open Office Button -->
+      <button id="btn-office" class="btn-accent" disabled>
+        <span class="btn-icon-emoji">&#127968;</span>
+        Enter Virtual Office
+      </button>
+
+      <!-- Connected Users Card -->
+      <div class="card">
+        <div class="card-header">
+          Online
+          <span id="user-count" class="count-badge">0</span>
+        </div>
+        <div id="user-list" class="user-list">
+          <div class="empty-state">No one is in the office yet</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== JOIN MODE ===== -->
+    <div id="mode-join" style="display:none">
+
+      <div class="card">
+        <div class="card-header">Connect to a Server</div>
+        <div class="join-body">
+          <p class="join-desc">Enter the address shared by the host to join their virtual office.</p>
+          <div class="field">
+            <label for="connect-host">Server Address</label>
+            <input type="text" id="connect-host" placeholder="e.g. 192.168.1.42:4000" spellcheck="false">
+          </div>
+          <button id="btn-connect" class="btn-accent">
+            <span class="btn-icon-emoji">&#128279;</span>
+            Connect
+          </button>
+        </div>
+      </div>
+
+      <div class="join-help">
+        <p>Ask the host for their <strong>Share Link</strong> and paste it above.</p>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="./js/launcher.js"></script>
+</body>
+</html>
