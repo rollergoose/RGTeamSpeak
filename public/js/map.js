@@ -107,9 +107,9 @@ function createMap() {
   m[1][23] = T.COUNTER; m[2][23] = T.COUNTER; m[3][23] = T.COUNTER;
 
   // Kitchen — L-shaped counter on right, table shifted left
-  // Counter L-form: along top-right and down the right wall
-  fill(32, 1, 2, 1, T.COUNTER); // top right
-  m[2][33] = T.COUNTER; m[3][33] = T.COUNTER; m[4][33] = T.COUNTER; // right wall down
+  // Counter L-form: against the right wall
+  fill(33, 1, 2, 1, T.COUNTER); // top right against wall
+  m[2][34] = T.COUNTER; m[3][34] = T.COUNTER; m[4][34] = T.COUNTER; // right wall down
   // Table 1 step left
   fill(28, 3, 3, 1, T.TABLE);
   m[2][28] = T.CHAIR; m[2][29] = T.CHAIR; m[2][30] = T.CHAIR;

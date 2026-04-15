@@ -276,7 +276,7 @@ function setupZoneCallbacks() {
 
     if (zone.type === ZONE_TYPES.OFFICE) {
       statusPanel.classList.add('visible');
-      document.getElementById('furniture-menu').classList.add('visible');
+      document.getElementById('furn-toggle-btn').style.display = 'flex';
     }
 
     if (zone.type === ZONE_TYPES.ARCHIVES) {
@@ -307,6 +307,7 @@ function setupZoneCallbacks() {
       statusPanel.classList.remove('visible');
       document.getElementById('notice-board-overlay').classList.remove('visible');
       document.getElementById('furniture-menu').classList.remove('visible');
+      document.getElementById('furn-toggle-btn').style.display = 'none';
     }
   });
 }
@@ -1197,6 +1198,12 @@ function setupFurnitureMenu() {
   const allBtns = document.querySelectorAll('#furniture-items .furn-btn');
   const tabs = document.querySelectorAll('.furn-tab');
   const canvas = document.getElementById('game-canvas');
+
+  // Toggle button opens/closes the panel
+  const toggleBtn = document.getElementById('furn-toggle-btn');
+  toggleBtn.addEventListener('click', () => {
+    menu.classList.toggle('visible');
+  });
 
   // Category tab filtering
   tabs.forEach(tab => {

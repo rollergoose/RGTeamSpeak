@@ -1644,6 +1644,31 @@ body {
   margin-top: -2px;
 }
 
+/* === FURNITURE TOGGLE BUTTON === */
+#furn-toggle-btn {
+  position: absolute;
+  bottom: 12px;
+  left: 12px;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: #16213e;
+  border: 2px solid rgba(255,255,255,0.1);
+  font-size: 20px;
+  cursor: pointer;
+  z-index: 32;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.4);
+}
+
+#furn-toggle-btn:hover {
+  border-color: #e94560;
+  box-shadow: 0 2px 12px rgba(233,69,96,0.3);
+}
+
 /* === FURNITURE MENU (bottom bar) === */
 #furniture-menu {
   position: absolute;
