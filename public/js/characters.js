@@ -143,26 +143,14 @@ export function drawCharacter(ctx, sx, sy, appearance, direction, isMoving, anim
     drawOutfit(ctx, x, bodyY, bodyH, appearance.outfit);
   }
 
-  // === Username label ===
-  ctx.font = 'bold 10px monospace';
-  ctx.textAlign = 'center';
-  const labelY = headY - 12;
-
-  // Status dot
+  // === Status dot (meeting room mic indicator) ===
   if (status.inMeeting) {
     const dotColor = status.muted ? '#e74c3c' : '#2ecc71';
     ctx.fillStyle = dotColor;
     ctx.beginPath();
-    ctx.arc(sx, labelY - 4, 3, 0, Math.PI * 2);
+    ctx.arc(sx, headY - 14, 3, 0, Math.PI * 2);
     ctx.fill();
   }
-
-  // Name background
-  const nameW = ctx.measureText(username || '???').width;
-  ctx.fillStyle = 'rgba(0,0,0,0.5)';
-  ctx.fillRect(sx - nameW / 2 - 3, labelY - 3, nameW + 6, 13);
-  ctx.fillStyle = '#fff';
-  ctx.fillText(username || '???', sx, labelY + 7);
 }
 
 function drawHair(ctx, hx, hy, hw, hh, style, color, direction) {

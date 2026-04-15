@@ -1573,13 +1573,61 @@ body {
   margin-top: -2px;
 }
 
+/* === OFFICE TOOL BUTTONS === */
+#office-tools {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 30;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s;
+}
+
+#office-tools.visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.office-tool-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: rgba(12,12,25,0.88);
+  border: 1px solid rgba(255,255,255,0.1);
+  font-size: 22px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(6px);
+}
+
+.office-tool-btn:hover {
+  background: rgba(233,69,96,0.2);
+  border-color: #e94560;
+  transform: scale(1.1);
+}
+
+.office-tool-btn.active {
+  background: rgba(233,69,96,0.3);
+  border-color: #e94560;
+  box-shadow: 0 0 12px rgba(233,69,96,0.3);
+}
+
 /* === FURNITURE MENU === */
 #furniture-menu {
   position: absolute;
-  bottom: 20px;
-  right: 320px;
+  top: 50%;
+  left: 64px;
+  transform: translateY(-50%);
   width: 260px;
-  max-height: 400px;
+  max-height: 80vh;
   overflow-y: auto;
   background: rgba(12,12,25,0.92);
   border-radius: 10px;
@@ -1591,6 +1639,9 @@ body {
   transition: opacity 0.3s;
   overflow: hidden;
 }
+
+#furniture-menu::-webkit-scrollbar { width: 5px; }
+#furniture-menu::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 3px; }
 
 #furniture-menu.visible {
   opacity: 1;

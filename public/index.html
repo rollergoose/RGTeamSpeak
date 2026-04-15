@@ -134,13 +134,13 @@
     <!-- Knock area (near offices) -->
     <div id="knock-area">
       <span id="knock-target-name">Knock</span>
-      <span id="knock-lock-status"></span>
       <div class="knock-hints">
         <span id="knock-hint-e" class="key-hint"><kbd>E</kbd> Knock</span>
         <span class="key-hint"><kbd>Q</kbd> <span id="lock-hint-text">Lock</span></span>
-        <button id="notice-open-btn" class="ctrl-btn">📌 Board</button>
-        <button id="knock-btn" class="ctrl-btn" style="display:none">🚪 Knock</button>
+        <button id="notice-open-btn" class="ctrl-btn" style="display:none">📌</button>
+        <button id="knock-btn" class="ctrl-btn" style="display:none">🚪</button>
         <button id="lock-toggle-btn" class="ctrl-btn" style="display:none">🔒</button>
+        <span id="knock-lock-status" style="display:none"></span>
       </div>
       <div id="knock-overlay">
         <input type="text" id="knock-input" placeholder="Message (e.g. meeting in 5)" maxlength="200">
@@ -171,11 +171,17 @@
       <div id="online-hud-list" class="online-hud-list"></div>
     </div>
 
+    <!-- Furniture/Pet toggle buttons (left side, visible in offices) -->
+    <div id="office-tools">
+      <button id="tool-furniture" class="office-tool-btn" title="Decorate Office">🛋️</button>
+      <button id="tool-pets" class="office-tool-btn" title="Pets">🐕</button>
+    </div>
+
     <!-- Furniture placement menu (in office zones) -->
-    <div id="furniture-menu">
+    <div id="furniture-menu" style="display:none">
       <div class="furniture-menu-header" id="furniture-toggle">
         <span>🛋️ Decorate Office</span>
-        <span id="furniture-arrow">▼</span>
+        <span id="furniture-arrow">✕</span>
       </div>
       <div class="furn-category">Essentials</div>
       <div class="furniture-items" id="furniture-items">

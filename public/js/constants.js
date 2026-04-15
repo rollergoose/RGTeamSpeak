@@ -1,7 +1,7 @@
 // === Map ===
 export const TILE_SIZE = 32;
 export const MAP_COLS = 50;
-export const MAP_ROWS = 28;
+export const MAP_ROWS = 24;
 export const MAP_WIDTH = MAP_COLS * TILE_SIZE;
 export const MAP_HEIGHT = MAP_ROWS * TILE_SIZE;
 
@@ -154,7 +154,7 @@ export const ZONE_TYPES = {
 };
 
 // Spawn in the hallway (row 8, center)
-export const SPAWN_X = 25 * TILE_SIZE;
+export const SPAWN_X = 20 * TILE_SIZE;
 export const SPAWN_Y = 8 * TILE_SIZE;
 
 // === WebRTC ===

@@ -31,7 +31,7 @@ const officeLocks = { henrik: null, alice: null, leo: null };
 // Player levels: keyed by socketId → { steps, meetingTime, tasksCompleted }
 const playerStats = new Map();
 
-const SPAWN_X = 25 * 32;
+const SPAWN_X = 20 * 32;
 const SPAWN_Y = 8 * 32;
 
 // === API endpoint for launcher status ===
@@ -662,9 +662,9 @@ function getState() {
 
 // Zone bounds helper for pet spawning — must match map.js ZONES
 const ZONE_BOUNDS = {
-  henrik: { x: 1 * 32, y: 10 * 32, w: 12 * 32, h: 9 * 32 },
-  alice:  { x: 14 * 32, y: 10 * 32, w: 12 * 32, h: 9 * 32 },
-  leo:    { x: 27 * 32, y: 10 * 32, w: 12 * 32, h: 9 * 32 },
+  henrik: { x: 1 * 32, y: 10 * 32, w: 6 * 32, h: 6 * 32 },
+  alice:  { x: 8 * 32, y: 10 * 32, w: 6 * 32, h: 6 * 32 },
+  leo:    { x: 15 * 32, y: 10 * 32, w: 6 * 32, h: 6 * 32 },
 };
 
 // Level calculation: each level requires progressively more

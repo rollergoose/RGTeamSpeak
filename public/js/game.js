@@ -150,6 +150,7 @@ function gameLoop(timestamp) {
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
   drawMap(ctx, camera);
+  drawLockedDoors(ctx, camera);
   drawZoneLabels(ctx, camera);
   drawPlacedFurniture(ctx, camera);
   drawPets(ctx, camera);
@@ -300,6 +301,37 @@ function drawInteractHint(ctx, nearBoard) {
   ctx.fillStyle = '#fff';
   ctx.fillText(text, cx, cy + 2);
   ctx.textAlign = 'center';
+}
+
+// ========== LOCKED DOOR OVERLAY ==========
+// Door positions: Henrik (6,9)(7,9), Alice (19,9)(20,9), Leo (32,9)(33,9)
+const OFFICE_DOORS = {
+  henrik: [[3, 9], [4, 9]],
+  alice: [[10, 9], [11, 9]],
+  leo: [[17, 9], [18, 9]],
+};
+
+function drawLockedDoors(ctx, camera) {
+  const locks = window._officeLocks || {};
+  for (const [officeId, doors] of Object.entries(OFFICE_DOORS)) {
+    const lock = locks[officeId];
+    if (lock && lock.locked) {
+      for (const [col, row] of doors) {
+        const x = col * TILE_SIZE - camera.x;
+        const y = row * TILE_SIZE - camera.y;
+        // Draw wall-colored overlay on top of the door
+        ctx.fillStyle = '#4a3f35';
+        ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+        ctx.fillStyle = '#5e5248';
+        ctx.fillRect(x, y + TILE_SIZE / 2 - 1, TILE_SIZE, 2);
+        // Lock icon
+        ctx.fillStyle = '#e74c3c';
+        ctx.font = '12px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('🔒', x + TILE_SIZE / 2, y + TILE_SIZE / 2 + 4);
+      }
+    }
+  }
 }
 
 // ========== PLACED FURNITURE RENDERING ==========
@@ -807,24 +839,7 @@ function drawSittingAnimation(ctx, sx, sy, zone) {
     }
   }
 
-  // OFFICE — typing animation (hand moving up and down near keyboard)
-  if (zone === 'henrik' || zone === 'alice' || zone === 'leo') {
-    const handY = Math.sin(now * 0.01) * 2;
-    const handX = Math.sin(now * 0.007 + 1) * 1.5;
-    // Left hand typing
-    ctx.fillStyle = 'rgba(200,180,160,0.7)';
-    ctx.fillRect(sx - 6 + handX, sy - 2 + handY, 4, 3);
-    // Right hand typing
-    ctx.fillRect(sx + 3 - handX, sy - 2 - handY, 4, 3);
-    // Small keyboard below
-    ctx.fillStyle = 'rgba(60,60,60,0.4)';
-    ctx.fillRect(sx - 7, sy + 2, 14, 3);
-    ctx.fillStyle = 'rgba(100,100,100,0.3)';
-    ctx.fillRect(sx - 6, sy + 3, 2, 1);
-    ctx.fillRect(sx - 3, sy + 3, 2, 1);
-    ctx.fillRect(sx + 0, sy + 3, 2, 1);
-    ctx.fillRect(sx + 3, sy + 3, 2, 1);
-  }
+  // (No animation in offices — players design their own space)
 }
 
 // ========== CHAT SPEECH BUBBLE ==========
@@ -890,7 +905,7 @@ function checkKnockProximity() {
     if (!zone) continue;
 
     const dist = distToRect(px, py, zone.x, zone.y, zone.w, zone.h);
-    if (dist < 1.5 * TILE_SIZE) {
+    if (dist < 2.5 * TILE_SIZE) {
       let occupant = null;
       for (const rp of remotePlayers.values()) {
         if (rp.zone === zoneId) { occupant = rp.username; break; }

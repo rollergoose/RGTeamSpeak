@@ -276,9 +276,7 @@ function setupZoneCallbacks() {
 
     if (zone.type === ZONE_TYPES.OFFICE) {
       statusPanel.classList.add('visible');
-      document.getElementById('furniture-menu').classList.add('visible');
-      // Show notice board for this office
-      openNoticeBoard(zone.id, zone.name);
+      document.getElementById('office-tools').classList.add('visible');
     }
 
     if (zone.type === ZONE_TYPES.ARCHIVES) {
@@ -307,9 +305,10 @@ function setupZoneCallbacks() {
 
     if (zone.type === ZONE_TYPES.OFFICE) {
       statusPanel.classList.remove('visible');
-      document.getElementById('furniture-menu').classList.remove('visible');
-      // Close notice board when leaving office
       document.getElementById('notice-board-overlay').classList.remove('visible');
+      document.getElementById('office-tools').classList.remove('visible');
+      document.getElementById('furniture-menu').style.display = 'none';
+      document.getElementById('tool-furniture')?.classList.remove('active');
     }
   });
 }
@@ -595,11 +594,21 @@ function setupGameCallbacks() {
     },
     keyAction: (action) => {
       if (action === 'interact') {
-        // E key: Planning board OR knock on door
-        const { isBoardNearby } = requireMap();
-        if (isBoardNearby && isBoardNearby(localPlayer.x, localPlayer.y)) {
+        // E key: Planning board, office notice board, OR knock on door
+        const mapMod = requireMap();
+        if (mapMod.isBoardNearby && mapMod.isBoardNearby(localPlayer.x, localPlayer.y)) {
           if (isBoardOpen()) closeBoard();
           else openBoard();
+        } else if (mapMod.getOfficeBoardNearby) {
+          const officeBoard = mapMod.getOfficeBoardNearby(localPlayer.x, localPlayer.y);
+          if (officeBoard) {
+            const overlay = document.getElementById('notice-board-overlay');
+            if (overlay.classList.contains('visible')) {
+              overlay.classList.remove('visible');
+            } else {
+              openNoticeBoard(officeBoard.officeId, officeBoard.zoneName);
+            }
+          }
         } else if (currentKnockTarget && currentKnockTarget.occupant && !currentKnockTarget.isInside) {
           // Knock on the door
           const message = prompt('Knock message:') || 'Knock knock!';
@@ -1177,15 +1186,31 @@ let selectedFurniture = null;
 
 function setupFurnitureMenu() {
   const menu = document.getElementById('furniture-menu');
-  const buttons = document.querySelectorAll('#furniture-items .furn-btn'); // only furniture, not pets
+  const buttons = document.querySelectorAll('#furniture-items .furn-btn');
   const canvas = document.getElementById('game-canvas');
+  const toolFurniture = document.getElementById('tool-furniture');
+  const toolPets = document.getElementById('tool-pets');
   const toggleBtn = document.getElementById('furniture-toggle');
-  const arrow = document.getElementById('furniture-arrow');
 
-  // Toggle open/close
+  // Tool button toggles
+  toolFurniture.addEventListener('click', () => {
+    const showing = menu.style.display !== 'none';
+    menu.style.display = showing ? 'none' : 'block';
+    toolFurniture.classList.toggle('active', !showing);
+  });
+
+  toolPets.addEventListener('click', () => {
+    // Scroll the menu to the pets section and open it
+    menu.style.display = 'block';
+    toolFurniture.classList.add('active');
+    const petSection = document.getElementById('pet-items');
+    if (petSection) petSection.scrollIntoView({ behavior: 'smooth' });
+  });
+
+  // Close button in menu header
   toggleBtn.addEventListener('click', () => {
-    menu.classList.toggle('collapsed');
-    arrow.textContent = menu.classList.contains('collapsed') ? '▶' : '▼';
+    menu.style.display = 'none';
+    toolFurniture.classList.remove('active');
   });
 
   buttons.forEach(btn => {
@@ -1306,7 +1331,7 @@ function setupOfficeLocks() {
 
   network.on('office:lock-sync', ({ locks }) => {
     officeLocks = locks;
-    // Update UI if knock area is visible
+    window._officeLocks = locks; // expose for game.js locked door rendering
     updateLockUI();
   });
 
@@ -1315,9 +1340,9 @@ function setupOfficeLocks() {
   // Set up the locked door collision checker for player.js
   // Maps door tile positions to office IDs
   const doorToOffice = {
-    '6,9': 'henrik', '7,9': 'henrik',
-    '19,9': 'alice', '20,9': 'alice',
-    '32,9': 'leo', '33,9': 'leo',
+    '3,9': 'henrik', '4,9': 'henrik',
+    '10,9': 'alice', '11,9': 'alice',
+    '17,9': 'leo', '18,9': 'leo',
   };
 
   setLockedDoorChecker((col, row) => {

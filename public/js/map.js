@@ -21,25 +21,25 @@ import { T, TILE_SIZE, MAP_COLS, MAP_ROWS, TILE_COLORS, SOLID_TILES, ZONE_TYPES 
 
 export const ZONES = [
   // TOP ROW (left to right)
+  // TOP ROW — utility rooms
   { id: 'tv_area',   name: 'Video Hangout',  type: ZONE_TYPES.CHILL,    tx: 1,  ty: 1,  tw: 8,  th: 5 },
   { id: 'resting',   name: 'Resting Area',   type: ZONE_TYPES.RESTING,  tx: 10, ty: 1,  tw: 8,  th: 5 },
   { id: 'toilet',    name: 'Restroom',       type: ZONE_TYPES.TOILET,   tx: 19, ty: 1,  tw: 7,  th: 5 },
-  { id: 'meeting',   name: 'Meeting Room',   type: ZONE_TYPES.MEETING,  tx: 27, ty: 1,  tw: 8,  th: 5 },
-  { id: 'kitchen',   name: 'Kitchen',        type: ZONE_TYPES.KITCHEN,  tx: 36, ty: 1,  tw: 7,  th: 5 },
-  { id: 'archives',  name: 'Archives',       type: ZONE_TYPES.ARCHIVES, tx: 44, ty: 1,  tw: 5,  th: 5 },
+  { id: 'kitchen',   name: 'Kitchen',        type: ZONE_TYPES.KITCHEN,  tx: 27, ty: 1,  tw: 8,  th: 5 },
+  { id: 'archives',  name: 'Archives',       type: ZONE_TYPES.ARCHIVES, tx: 36, ty: 1,  tw: 6,  th: 5 },
 
-  // HALLWAY (horizontal band)
+  // HALLWAY
   { id: 'hallway',   name: 'Hallway',        type: ZONE_TYPES.HALLWAY,  tx: 1,  ty: 7,  tw: 48, th: 2 },
 
-  // BOTTOM ROW — three equal offices
-  { id: 'henrik',    name: "Henrik's Office", type: ZONE_TYPES.OFFICE,   tx: 1,  ty: 10, tw: 12, th: 9 },
-  { id: 'alice',     name: "Alice's Office",  type: ZONE_TYPES.OFFICE,   tx: 14, ty: 10, tw: 12, th: 9 },
-  { id: 'leo',       name: "Leo's Office",    type: ZONE_TYPES.OFFICE,   tx: 27, ty: 10, tw: 12, th: 9 },
+  // BOTTOM ROW — 3 offices (6x6 interior = 8x8 with walls) + meeting room
+  { id: 'henrik',    name: "Henrik's Office", type: ZONE_TYPES.OFFICE,   tx: 1,  ty: 10, tw: 6,  th: 6 },
+  { id: 'alice',     name: "Alice's Office",  type: ZONE_TYPES.OFFICE,   tx: 8,  ty: 10, tw: 6,  th: 6 },
+  { id: 'leo',       name: "Leo's Office",    type: ZONE_TYPES.OFFICE,   tx: 15, ty: 10, tw: 6,  th: 6 },
+  { id: 'meeting',   name: 'Meeting Room',   type: ZONE_TYPES.MEETING,  tx: 22, ty: 10, tw: 10, th: 6 },
 
-  // OUTSIDE AREA (bottom right — sidewalk + grass area)
-  { id: 'outside',   name: 'Outside',        type: ZONE_TYPES.HALLWAY,  tx: 40, ty: 10, tw: 9,  th: 9 },
-  // Sidewalk corridor at bottom
-  { id: 'sidewalk',  name: 'Sidewalk',       type: ZONE_TYPES.HALLWAY,  tx: 1,  ty: 21, tw: 48, th: 2 },
+  // OUTSIDE AREA
+  { id: 'outside',   name: 'Outside',        type: ZONE_TYPES.HALLWAY,  tx: 33, ty: 10, tw: 16, th: 6 },
+  { id: 'sidewalk',  name: 'Sidewalk',       type: ZONE_TYPES.HALLWAY,  tx: 1,  ty: 18, tw: 48, th: 2 },
 ];
 
 export const ZONES_PX = ZONES.map(z => ({
@@ -73,165 +73,106 @@ function createMap() {
   vWall(0, 0, MAP_ROWS);
   vWall(MAP_COLS - 1, 0, MAP_ROWS);
 
-  // ========== TOP ROW WALLS ==========
-  // Bottom wall of top rooms (hallway ceiling)
+  // ========== TOP ROW — utility rooms ==========
   hWall(0, 6, MAP_COLS);
-  // Vertical dividers between top rooms
-  vWall(9,  0, 7);   // between Video & Resting
-  vWall(18, 0, 7);   // between Resting & Restroom
-  vWall(26, 0, 7);   // between Restroom & Meeting
-  vWall(35, 0, 7);   // between Meeting & Kitchen
-  vWall(43, 0, 7);   // right wall of Kitchen
+  vWall(9,  0, 7);
+  vWall(18, 0, 7);
+  vWall(26, 0, 7);
+  vWall(35, 0, 7);
+  vWall(42, 0, 7);
 
-  // Doors from top rooms into hallway (row 6)
-  m[6][4]  = T.DOOR; m[6][5]  = T.DOOR;   // Video Hangout
+  // Doors into hallway (row 6)
+  m[6][4]  = T.DOOR; m[6][5]  = T.DOOR;   // Video
   m[6][13] = T.DOOR; m[6][14] = T.DOOR;   // Resting
   m[6][22] = T.DOOR; m[6][23] = T.DOOR;   // Restroom
-  m[6][30] = T.DOOR; m[6][31] = T.DOOR;   // Meeting Room
-  m[6][38] = T.DOOR; m[6][39] = T.DOOR;   // Kitchen
+  m[6][30] = T.DOOR; m[6][31] = T.DOOR;   // Kitchen
+  m[6][38] = T.DOOR; m[6][39] = T.DOOR;   // Archives
 
-  // ========== VIDEO HANGOUT (cols 1-8, rows 1-5) ==========
+  // Video Hangout
   m[2][1] = T.TV; m[3][1] = T.TV;
-  fill(3, 2, 3, 1, T.COUCH);
-  fill(3, 4, 3, 1, T.COUCH);
-  fill(3, 3, 3, 1, T.RUG);
-  m[1][7] = T.PLANT;
+  fill(3, 2, 3, 1, T.COUCH); fill(3, 4, 3, 1, T.COUCH);
+  fill(3, 3, 3, 1, T.RUG); m[1][7] = T.PLANT;
 
-  // ========== RESTING AREA (cols 10-17, rows 1-5) ==========
-  fill(11, 2, 3, 1, T.COUCH);
-  fill(11, 4, 3, 1, T.COUCH);
-  m[3][15] = T.TABLE;
-  m[3][16] = T.TABLE;
-  m[1][10] = T.PLANT;
-  m[4][16] = T.PLANT;
+  // Resting
+  fill(11, 2, 3, 1, T.COUCH); fill(11, 4, 3, 1, T.COUCH);
+  m[3][15] = T.TABLE; m[3][16] = T.TABLE; m[1][10] = T.PLANT;
 
-  // ========== RESTROOM (cols 19-25, rows 1-5) ==========
-  m[2][20] = T.TOILET_TILE;
-  m[2][22] = T.TOILET_TILE;
-  m[4][20] = T.COUNTER;
-  m[4][22] = T.COUNTER;
+  // Restroom
+  m[2][20] = T.TOILET_TILE; m[2][22] = T.TOILET_TILE;
+  m[4][20] = T.COUNTER; m[4][22] = T.COUNTER;
 
-  // ========== MEETING ROOM (cols 27-34, rows 1-5) ==========
-  fill(29, 2, 4, 2, T.MEETING_TABLE);
-  m[1][29] = T.CHAIR; m[1][31] = T.CHAIR; m[1][32] = T.CHAIR;
-  m[4][29] = T.CHAIR; m[4][31] = T.CHAIR; m[4][32] = T.CHAIR;
-  m[2][28] = T.CHAIR; m[3][28] = T.CHAIR;
-  m[2][33] = T.CHAIR; m[3][33] = T.CHAIR;
-  m[1][27] = T.PLANT;
+  // Kitchen
+  fill(28, 1, 4, 1, T.COUNTER); fill(33, 2, 1, 2, T.COUNTER);
+  fill(29, 3, 2, 1, T.TABLE);
+  m[2][29] = T.CHAIR; m[4][29] = T.CHAIR; m[4][30] = T.CHAIR;
+  m[4][27] = T.PLANT;
 
-  // ========== KITCHEN (cols 36-42, rows 1-5) ==========
-  fill(37, 1, 4, 1, T.COUNTER);
-  fill(41, 2, 1, 2, T.COUNTER);
-  fill(38, 3, 2, 1, T.TABLE);
-  m[2][38] = T.CHAIR; m[4][38] = T.CHAIR;
-  m[2][39] = T.CHAIR; m[4][39] = T.CHAIR;
-  m[4][36] = T.PLANT;
+  // Archives
+  m[1][36] = T.DESK; m[1][37] = T.DESK; m[1][38] = T.DESK; m[1][39] = T.DESK;
+  m[2][40] = T.DESK; m[3][40] = T.DESK;
+  m[3][37] = T.TABLE; m[4][37] = T.CHAIR; m[2][36] = T.PLANT;
 
-  // ========== ARCHIVES (cols 44-48, rows 1-5) ==========
-  // Left wall (shared with kitchen's right wall area)
-  vWall(43, 0, 7);  // already exists as kitchen right wall — reinforce
-  // Door from archives to hallway
-  m[6][46] = T.DOOR; m[6][47] = T.DOOR;
-  // Bookshelves along walls (representing stored records)
-  m[1][44] = T.DESK; m[1][45] = T.DESK; m[1][46] = T.DESK; m[1][47] = T.DESK;
-  m[2][48] = T.DESK;
-  m[3][48] = T.DESK;
-  // Reading desk
-  m[3][45] = T.TABLE;
-  m[4][45] = T.CHAIR;
-  m[2][44] = T.PLANT;
+  // ========== HALLWAY (rows 7-8) ==========
+  // Planning board on wall
+  m[6][16] = T.BOARD; m[6][17] = T.BOARD; m[6][18] = T.BOARD;
+  m[7][1] = T.PLANT; m[7][48] = T.PLANT;
 
-  // ========== HALLWAY (rows 7-8) — open space ==========
-  // Planning board on the hallway top wall
-  m[6][24] = T.BOARD; m[6][25] = T.BOARD; m[6][26] = T.BOARD;
-  // Wait — board is on row 6 which is the wall. Let me put it on the hallway floor near the wall instead.
-  // Actually the board should be a wall tile. Let me place it correctly:
-  // Remove the door conflict and put board tiles in the wall
-  m[6][24] = T.BOARD; m[6][25] = T.BOARD; m[6][26] = T.BOARD;
-  // Hallway plants
-  m[7][1] = T.PLANT;
-  m[7][48] = T.PLANT;
-
-  // ========== BOTTOM ROW WALLS ==========
-  // Top wall of offices (hallway floor)
+  // ========== BOTTOM ROW — offices (6x6 interior) + meeting room ==========
   hWall(0, 9, MAP_COLS);
-  // Right wall closing off the office section
-  vWall(39, 9, 11);
 
-  // Vertical dividers between offices
-  vWall(13, 9, 11);   // between Henrik & Alice
-  vWall(26, 9, 11);   // between Alice & Leo
+  // Henrik's Office (cols 1-6, rows 10-15) — walls around 6x6
+  vWall(7, 9, 8);
+  m[9][3] = T.DOOR; m[9][4] = T.DOOR;
+  m[10][6] = T.BOARD; // notice board
 
-  // Doors from hallway into offices (row 9)
-  m[9][6]  = T.DOOR; m[9][7]  = T.DOOR;   // Henrik
-  m[9][19] = T.DOOR; m[9][20] = T.DOOR;   // Alice
-  m[9][32] = T.DOOR; m[9][33] = T.DOOR;   // Leo
+  // Alice's Office (cols 8-13)
+  vWall(14, 9, 8);
+  m[9][10] = T.DOOR; m[9][11] = T.DOOR;
+  m[10][13] = T.BOARD;
 
-  // ========== OFFICES ARE EMPTY — players furnish them with the placement system ==========
-  // Henrik's Office (cols 1-12, rows 10-18) — empty
-  // Alice's Office (cols 14-25, rows 10-18) — empty
-  // Leo's Office (cols 27-38, rows 10-18) — empty
+  // Leo's Office (cols 15-20)
+  vWall(21, 9, 8);
+  m[9][17] = T.DOOR; m[9][18] = T.DOOR;
+  m[10][20] = T.BOARD;
 
-  // ========== OUTSIDE YARD (cols 40-48, rows 10-27) ==========
-  // This is the entrance/yard — no building walls, just fence on edges
-  // Door from hallway to yard
-  vWall(39, 9, 2); // short wall above door
-  m[9][41] = T.DOOR; m[9][42] = T.DOOR; // door from hallway
-  vWall(39, 12, 8); // wall below door (office wall continues)
+  // Meeting Room (cols 22-31, rows 10-15)
+  vWall(32, 9, 8);
+  m[9][25] = T.DOOR; m[9][26] = T.DOOR;
+  // Meeting table + chairs
+  fill(24, 11, 4, 2, T.MEETING_TABLE);
+  m[10][24] = T.CHAIR; m[10][26] = T.CHAIR; m[10][27] = T.CHAIR;
+  m[13][24] = T.CHAIR; m[13][26] = T.CHAIR; m[13][27] = T.CHAIR;
+  m[11][23] = T.CHAIR; m[12][23] = T.CHAIR;
+  m[11][28] = T.CHAIR; m[12][28] = T.CHAIR;
+  m[10][22] = T.PLANT; m[14][30] = T.PLANT;
 
-  // Yard is grass + sidewalk, fence on right and bottom
-  fill(40, 10, 9, 9, T.GRASS);       // grass yard
-  fill(40, 10, 2, 9, T.SIDEWALK);    // path from door
-  // Fence on right edge
-  for (let r = 10; r < 19; r++) m[r][49] = T.FENCE;
-  // Fence on bottom of yard
-  for (let c = 40; c < 49; c++) m[19][c] = T.FENCE;
-  // Remove outer walls in the yard area (replace with open/fence)
-  for (let r = 10; r < 19; r++) m[r][MAP_COLS - 1] = T.FENCE;
+  // ========== OUTSIDE YARD (cols 33-48, rows 10-15) ==========
+  m[9][34] = T.DOOR; m[9][35] = T.DOOR;
+  fill(33, 10, 16, 6, T.GRASS);
+  fill(33, 10, 2, 6, T.SIDEWALK);
+  for (let r = 10; r < 16; r++) m[r][MAP_COLS - 1] = T.FENCE;
+  for (let c = 33; c < MAP_COLS; c++) m[16][c] = T.FENCE;
+  fill(37, 11, 2, 2, T.RUG); fill(42, 13, 2, 2, T.RUG);
+  m[11][40] = T.PLANT; m[14][45] = T.PLANT; m[12][47] = T.PLANT;
 
-  // Picnic blankets on grass
-  fill(44, 12, 2, 2, T.RUG);  // picnic blanket 1
-  fill(46, 15, 2, 2, T.RUG);  // picnic blanket 2
-  // Plants and decoration
-  m[11][43] = T.PLANT;
-  m[16][47] = T.PLANT;
-  m[14][45] = T.PLANT;
+  // ========== BOTTOM WALL with windows ==========
+  hWall(0, 16, 33);
+  // Henrik windows (evenly: 2, 4)
+  m[16][2] = T.WINDOW; m[16][4] = T.WINDOW;
+  // Alice windows
+  m[16][9] = T.WINDOW; m[16][11] = T.WINDOW;
+  // Leo windows
+  m[16][16] = T.WINDOW; m[16][18] = T.WINDOW;
+  // Meeting windows
+  m[16][24] = T.WINDOW; m[16][26] = T.WINDOW; m[16][28] = T.WINDOW;
 
-  // ========== BOTTOM WALL with evenly spaced windows ==========
-  hWall(0, 19, 39); // bottom wall of offices (up to yard)
+  hWall(0, 17, 33);
 
-  // Henrik's windows (cols 1-12, evenly at 3, 5, 7, 9)
-  m[19][3] = T.WINDOW; m[19][5] = T.WINDOW; m[19][7] = T.WINDOW; m[19][9] = T.WINDOW;
-  // Alice's windows (cols 14-25, evenly at 16, 18, 20, 22)
-  m[19][16] = T.WINDOW; m[19][18] = T.WINDOW; m[19][20] = T.WINDOW; m[19][22] = T.WINDOW;
-  // Leo's windows (cols 27-38, evenly at 29, 31, 33, 35)
-  m[19][29] = T.WINDOW; m[19][31] = T.WINDOW; m[19][33] = T.WINDOW; m[19][35] = T.WINDOW;
-
-  // ========== LOWER BUILDING WALL (row 20) ==========
-  hWall(0, 20, 40);
-
-  // ========== SIDEWALK (row 21-22) ==========
-  fill(0, 21, 40, 2, T.SIDEWALK);  // sidewalk only in front of building
-  fill(40, 20, 9, 3, T.GRASS);     // yard continues down
-
-  // ========== STREET (rows 23-25) ==========
-  fill(0, 23, 40, 3, T.STREET);
-  fill(40, 23, 9, 3, T.GRASS);     // grass continues beside street
-  // Road markings
-  for (let c = 2; c < 40; c += 4) {
-    m[24][c] = T.FLOOR;
-  }
-
-  // ========== BOTTOM SIDEWALK + GRASS (rows 26-27) ==========
-  fill(0, 26, 40, 1, T.SIDEWALK);
-  fill(0, 27, 40, 1, T.GRASS);
-  fill(40, 26, 9, 2, T.GRASS);     // more yard grass
-  // Fence along the very bottom
-  for (let c = 40; c < 49; c++) m[27][c] = T.FENCE;
-  // More picnic blankets outside
-  fill(42, 24, 2, 2, T.RUG);
-  m[25][46] = T.PLANT;
-  m[21][44] = T.PLANT;
+  // ========== SIDEWALK + STREET ==========
+  fill(0, 18, MAP_COLS, 2, T.SIDEWALK);
+  fill(0, 20, MAP_COLS, 3, T.STREET);
+  for (let c = 2; c < MAP_COLS; c += 4) m[21][c] = T.FLOOR; // center line
+  fill(0, 23, MAP_COLS, 1, T.GRASS);
 
   return m;
 }
@@ -433,6 +374,21 @@ export function drawZoneLabels(ctx, camera) {
     ctx.fillStyle = 'rgba(255,255,255,0.6)';
     ctx.fillText(z.name, cx, cy);
   }
+}
+
+// Check if near an office notice board, return the office id
+export function getOfficeBoardNearby(px, py) {
+  const col = Math.floor(px / TILE_SIZE);
+  const row = Math.floor(py / TILE_SIZE);
+  // Office board positions match map: Henrik (6,10), Alice (13,10), Leo (20,10)
+  const boards = { '6,10': 'henrik', '13,10': 'alice', '20,10': 'leo' };
+  for (let dr = -2; dr <= 2; dr++) {
+    for (let dc = -2; dc <= 2; dc++) {
+      const key = (col + dc) + ',' + (row + dr);
+      if (boards[key]) return { officeId: boards[key], zoneName: ZONES.find(z => z.id === boards[key])?.name || boards[key] };
+    }
+  }
+  return null;
 }
 
 export function isBoardNearby(px, py) {
