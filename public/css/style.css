@@ -970,11 +970,35 @@ body {
   background: #f9d423;
 }
 
-/* === STATUS PANEL (office zones) === */
+/* === STATUS BUTTON + PANEL === */
+#status-toggle-btn {
+  position: absolute;
+  bottom: 112px;
+  left: 12px;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: #16213e;
+  border: 2px solid rgba(255,255,255,0.1);
+  font-size: 20px;
+  cursor: pointer;
+  z-index: 32;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.4);
+}
+
+#status-toggle-btn:hover {
+  border-color: #f1c40f;
+  box-shadow: 0 2px 12px rgba(241,196,15,0.3);
+}
+
 #status-panel {
   position: absolute;
-  bottom: 20px;
-  left: 16px;
+  bottom: 164px;
+  left: 12px;
   width: 300px;
   background: rgba(15,15,30,0.92);
   border-radius: 10px;
@@ -983,7 +1007,7 @@ body {
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.3s;
-  z-index: 30;
+  z-index: 33;
   backdrop-filter: blur(6px);
   display: flex;
   flex-direction: column;
@@ -999,21 +1023,9 @@ body {
   font-size: 12px;
   font-weight: 600;
   color: #8899aa;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  cursor: pointer;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  user-select: none;
-}
-
-.status-panel-header:hover {
-  color: #aabbcc;
-}
-
-#status-panel.collapsed #status-panel-body {
-  display: none;
 }
 
 #status-panel input {
@@ -1093,34 +1105,88 @@ body {
   margin-right: 2px;
 }
 
-#knock-overlay {
+/* === KNOCK SEND POPUP === */
+#knock-popup-send {
+  position: absolute;
+  inset: 0;
   display: none;
-  flex-direction: row;
-  gap: 6px;
-  background: rgba(15,15,30,0.92);
-  border: 1px solid rgba(255,255,255,0.1);
-  border-radius: 8px;
-  padding: 8px;
-  backdrop-filter: blur(6px);
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,0.5);
+  z-index: 80;
+  backdrop-filter: blur(3px);
 }
 
-#knock-overlay.visible {
+#knock-popup-send.visible {
   display: flex;
 }
 
-#knock-input {
-  width: 200px;
-  padding: 6px 10px;
-  background: #1a1a3a;
-  border: 1px solid rgba(255,255,255,0.1);
-  border-radius: 6px;
+.knock-send-card {
+  background: linear-gradient(135deg, #1a1a2e, #16213e);
+  border: 2px solid #e94560;
+  border-radius: 16px;
+  padding: 24px 28px;
+  min-width: 340px;
+  box-shadow: 0 12px 40px rgba(233,69,96,0.2);
+  animation: knockBounce 0.3s ease;
+}
+
+.knock-send-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 16px;
+  font-weight: 600;
   color: #fff;
-  font-size: 12px;
+  margin-bottom: 16px;
+}
+
+.knock-send-close {
+  background: none;
+  border: none;
+  color: #778;
+  font-size: 20px;
+  cursor: pointer;
+}
+.knock-send-close:hover { color: #fff; }
+
+#knock-input {
+  width: 100%;
+  padding: 12px 14px;
+  background: #0f3460;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px;
+  color: #fff;
+  font-size: 14px;
   outline: none;
+  margin-bottom: 14px;
 }
 
 #knock-input:focus {
   border-color: #e94560;
+  box-shadow: 0 0 0 3px rgba(233,69,96,0.15);
+}
+
+.knock-send-btns {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.knock-send-submit {
+  padding: 10px 24px;
+  background: #e94560;
+  border: none;
+  border-radius: 8px;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.knock-send-submit:hover {
+  background: #ff5a76;
+  box-shadow: 0 4px 16px rgba(233,69,96,0.3);
 }
 
 /* === KNOCK NOTIFICATIONS === */
@@ -1647,7 +1713,7 @@ body {
 /* === FURNITURE TOGGLE BUTTON === */
 #furn-toggle-btn {
   position: absolute;
-  bottom: 12px;
+  bottom: 60px;
   left: 12px;
   width: 44px;
   height: 44px;

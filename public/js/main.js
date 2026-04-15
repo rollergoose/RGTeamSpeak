@@ -1,7 +1,7 @@
 import { SKIN_TONES, HAIR_COLORS, SHIRT_COLORS, PANTS_COLORS, HAIR_STYLES, SPAWN_X, SPAWN_Y, ZONE_TYPES, BANDWIDTH_OPTIONS, DEFAULT_BANDWIDTH, HATS, OUTFITS, FACES, LEVEL_CATEGORIES } from './constants.js';
 import { Player } from './player.js';
 import { initGame, setCallbacks, setInputFocused, getCamera } from './game.js';
-import { setLockedDoorChecker } from './player.js';
+import { setLockedDoorChecker, setFurnitureCollider } from './player.js';
 import { initChat } from './chat.js';
 import { initVoice, joinVoice, leaveVoice, toggleMute, setVoiceStateCallback, getIsMuted } from './voice.js';
 import { initScreenShare, startScreenShare, stopScreenShare, setBitrate, setScreenStateCallback, getIsSharing, getActiveSharer } from './screenshare.js';
@@ -194,6 +194,18 @@ async function startApp(username) {
       setupFurnitureMenu();
       setupOfficeLocks();
       setupLevelSystem();
+      setupNoticeBoard();
+      setupYouTubeControls();
+
+      // Furniture collision — returns all placed items from all players
+      setFurnitureCollider(() => {
+        const all = [];
+        if (localPlayer?.officeFurniture) all.push(...localPlayer.officeFurniture);
+        for (const rp of remotePlayers.values()) {
+          if (rp.officeFurniture) all.push(...rp.officeFurniture);
+        }
+        return all;
+      });
       uploadSavedFurniture();
     } catch (err) {
       console.error('AUTH:OK HANDLER ERROR:', err);
@@ -275,7 +287,7 @@ function setupZoneCallbacks() {
     }
 
     if (zone.type === ZONE_TYPES.OFFICE) {
-      statusPanel.classList.add('visible');
+      document.getElementById('status-toggle-btn').style.display = 'flex';
       document.getElementById('furn-toggle-btn').style.display = 'flex';
     }
 
@@ -304,7 +316,8 @@ function setupZoneCallbacks() {
     }
 
     if (zone.type === ZONE_TYPES.OFFICE) {
-      statusPanel.classList.remove('visible');
+      document.getElementById('status-panel').classList.remove('visible');
+      document.getElementById('status-toggle-btn').style.display = 'none';
       document.getElementById('notice-board-overlay').classList.remove('visible');
       document.getElementById('furniture-menu').classList.remove('visible');
       document.getElementById('furn-toggle-btn').style.display = 'none';
@@ -358,13 +371,15 @@ function setupStatusPanel() {
   const statusSetBtn = document.getElementById('status-set-btn');
   const statusClearBtn = document.getElementById('status-clear-btn');
   const statusPanel = document.getElementById('status-panel');
-  const statusToggle = document.getElementById('status-panel-toggle');
-  const statusArrow = document.getElementById('status-panel-arrow');
+  const statusToggleBtn = document.getElementById('status-toggle-btn');
+  const statusCloseBtn = document.getElementById('status-panel-close');
 
-  // Toggle minimize
-  statusToggle.addEventListener('click', () => {
-    statusPanel.classList.toggle('collapsed');
-    statusArrow.textContent = statusPanel.classList.contains('collapsed') ? '▶' : '▼';
+  // Toggle via button
+  statusToggleBtn.addEventListener('click', () => {
+    statusPanel.classList.toggle('visible');
+  });
+  statusCloseBtn.addEventListener('click', () => {
+    statusPanel.classList.remove('visible');
   });
 
   [statusInput, statusLink].forEach(el => {
@@ -393,47 +408,51 @@ function setupStatusPanel() {
 let currentKnockTarget = null;
 
 function setupKnockUI() {
-  const knockBtn = document.getElementById('knock-btn');
+  const popup = document.getElementById('knock-popup-send');
   const knockInput = document.getElementById('knock-input');
   const knockSendBtn = document.getElementById('knock-send-btn');
-  const knockOverlay = document.getElementById('knock-overlay');
-  const noticeOpenBtn = document.getElementById('notice-open-btn');
-
-  noticeOpenBtn.addEventListener('click', () => {
-    if (currentKnockTarget) {
-      openNoticeBoard(currentKnockTarget.zoneId, currentKnockTarget.zoneName);
-    }
-  });
-
-  knockBtn.addEventListener('click', () => {
-    knockOverlay.classList.toggle('visible');
-    if (knockOverlay.classList.contains('visible')) {
-      knockInput.focus();
-    }
-  });
+  const knockCancel = document.getElementById('knock-cancel');
+  const knockTarget = document.getElementById('knock-send-target');
 
   knockInput.addEventListener('keydown', (e) => {
     e.stopPropagation();
     if (e.key === 'Enter') knockSendBtn.click();
-    if (e.key === 'Escape') knockOverlay.classList.remove('visible');
+    if (e.key === 'Escape') closeKnockPopup();
   });
   knockInput.addEventListener('focus', () => setInputFocused(true));
   knockInput.addEventListener('blur', () => setInputFocused(false));
+
+  knockCancel.addEventListener('click', closeKnockPopup);
 
   knockSendBtn.addEventListener('click', () => {
     if (!currentKnockTarget) return;
     const message = knockInput.value.trim() || 'Knock knock!';
     network.emit('knock:send', { targetZoneId: currentKnockTarget.zoneId, message });
     knockInput.value = '';
-    knockOverlay.classList.remove('visible');
+    closeKnockPopup();
 
-    // Show sent confirmation
-    const confirm = document.createElement('div');
-    confirm.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(46,204,113,0.9);color:#fff;padding:12px 24px;border-radius:10px;font-weight:600;font-size:14px;z-index:999;pointer-events:none;animation:knockBounce 0.4s ease;';
-    confirm.textContent = `✅ Knock sent to ${currentKnockTarget.zoneName}!`;
-    document.body.appendChild(confirm);
-    setTimeout(() => confirm.remove(), 2000);
+    // Confirmation
+    const conf = document.createElement('div');
+    conf.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(46,204,113,0.9);color:#fff;padding:14px 28px;border-radius:12px;font-weight:600;font-size:15px;z-index:999;pointer-events:none;animation:knockBounce 0.4s ease;';
+    conf.textContent = `✅ Knock sent to ${currentKnockTarget.zoneName}!`;
+    document.body.appendChild(conf);
+    setTimeout(() => conf.remove(), 2000);
   });
+}
+
+function openKnockPopup() {
+  const popup = document.getElementById('knock-popup-send');
+  const target = document.getElementById('knock-send-target');
+  const input = document.getElementById('knock-input');
+  target.textContent = currentKnockTarget?.zoneName || 'Office';
+  popup.classList.add('visible');
+  setTimeout(() => input.focus(), 100);
+}
+
+function closeKnockPopup() {
+  document.getElementById('knock-popup-send').classList.remove('visible');
+  document.getElementById('knock-input').value = '';
+  setInputFocused(false);
 }
 
 function showKnockNotification(fromUsername, message) {
@@ -621,15 +640,9 @@ function setupGameCallbacks() {
         // (Knock is now on Space key, not E)
       }
       if (action === 'knock') {
-        // Space key: Knock on office door
+        // Space key: Open knock popup
         if (currentKnockTarget && !currentKnockTarget.isInside) {
-          const message = prompt('Knock message:') || 'Knock knock!';
-          network.emit('knock:send', { targetZoneId: currentKnockTarget.zoneId, message });
-          const conf = document.createElement('div');
-          conf.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(46,204,113,0.9);color:#fff;padding:12px 24px;border-radius:10px;font-weight:600;font-size:14px;z-index:999;pointer-events:none;';
-          conf.textContent = `✅ Knock sent to ${currentKnockTarget.zoneName}!`;
-          document.body.appendChild(conf);
-          setTimeout(() => conf.remove(), 2000);
+          openKnockPopup();
         }
       }
       if (action === 'lock') {
@@ -1657,10 +1670,8 @@ function playLevelUpSound() {
   } catch (e) { /* audio not available */ }
 }
 
-// Run setup immediately (doesn't need auth)
+// Run setup immediately (doesn't need auth — UI only, no network)
 setupScreenShareWindow();
-setupNoticeBoard();
-setupYouTubeControls();
 
 // === Initialize customization on load ===
 buildCustomization();

@@ -5,6 +5,13 @@ import { isSolid, getTile, ZONES_PX } from './map.js';
 let lockedDoorChecker = null;
 export function setLockedDoorChecker(fn) { lockedDoorChecker = fn; }
 
+// Furniture collision checker — set by main.js
+let furnitureCollider = null;
+export function setFurnitureCollider(fn) { furnitureCollider = fn; }
+
+// Items that should block movement
+const SOLID_FURNITURE = new Set(['desk', 'table', 'server', 'bookshelf', 'fridge', 'pinball', 'wall_h', 'wall_v', 'divider']);
+
 export class Player {
   constructor(x, y, appearance) {
     this.x = x;
@@ -97,6 +104,23 @@ export class Player {
         if (lockedDoorChecker(col, row)) return true;
       }
     }
+
+    // Check placed furniture collision
+    if (furnitureCollider) {
+      const items = furnitureCollider();
+      const halfTile = TILE_SIZE / 2;
+      for (const item of items) {
+        if (!SOLID_FURNITURE.has(item.type)) continue;
+        // Simple AABB check: item occupies a 32x32 area centered on its position
+        const ix = item.x - halfTile;
+        const iy = item.y - halfTile;
+        if (px + hw - 3 > ix && px - hw + 2 < ix + TILE_SIZE &&
+            py + hh - 3 > iy && py - hh + 2 < iy + TILE_SIZE) {
+          return true;
+        }
+      }
+    }
+
     return false;
   }
 }

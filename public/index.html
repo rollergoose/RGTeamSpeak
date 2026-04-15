@@ -115,11 +115,12 @@
       <div class="screenshare-resize-handle" id="youtube-resize"></div>
     </div>
 
-    <!-- Status panel (office zones) -->
+    <!-- Status button + popup (office zones) -->
+    <button id="status-toggle-btn" style="display:none" title="Set Status">📝</button>
     <div id="status-panel">
-      <div class="status-panel-header" id="status-panel-toggle">
-        <span>Set Your Status</span>
-        <span id="status-panel-arrow">▼</span>
+      <div class="status-panel-header">
+        <span>📝 Set Your Status</span>
+        <button id="status-panel-close" style="background:none;border:none;color:#889;font-size:16px;cursor:pointer">✕</button>
       </div>
       <div id="status-panel-body">
         <input type="text" id="status-input" placeholder="What are you working on?" maxlength="100">
@@ -131,20 +132,27 @@
       </div>
     </div>
 
-    <!-- Knock area (near offices) -->
+    <!-- Knock hints (near offices) -->
     <div id="knock-area">
       <span id="knock-target-name">Knock</span>
       <div class="knock-hints">
         <span id="knock-hint-e" class="key-hint"><kbd>Space</kbd> Knock</span>
         <span class="key-hint"><kbd>Q</kbd> <span id="lock-hint-text">Lock</span></span>
-        <button id="notice-open-btn" class="ctrl-btn" style="display:none">📌</button>
-        <button id="knock-btn" class="ctrl-btn" style="display:none">🚪</button>
-        <button id="lock-toggle-btn" class="ctrl-btn" style="display:none">🔒</button>
         <span id="knock-lock-status" style="display:none"></span>
       </div>
-      <div id="knock-overlay">
-        <input type="text" id="knock-input" placeholder="Message (e.g. meeting in 5)" maxlength="200">
-        <button id="knock-send-btn" class="ctrl-btn">Send</button>
+    </div>
+
+    <!-- Knock popup (center screen) -->
+    <div id="knock-popup-send">
+      <div class="knock-send-card">
+        <div class="knock-send-header">
+          <span>🚪 Knock on <span id="knock-send-target"></span></span>
+          <button id="knock-cancel" class="knock-send-close">✕</button>
+        </div>
+        <input type="text" id="knock-input" placeholder="Write your message..." maxlength="200" autofocus>
+        <div class="knock-send-btns">
+          <button id="knock-send-btn" class="knock-send-submit">🚪 Knock</button>
+        </div>
       </div>
     </div>
 

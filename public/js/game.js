@@ -323,16 +323,23 @@ function drawLockedDoors(ctx, camera) {
       for (const [col, row] of doors) {
         const x = col * TILE_SIZE - camera.x;
         const y = row * TILE_SIZE - camera.y;
-        // Draw wall-colored overlay on top of the door
-        ctx.fillStyle = '#4a3f35';
+        // Closed door — darker wood with panels and handle
+        ctx.fillStyle = '#5a4030';
         ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
-        ctx.fillStyle = '#5e5248';
-        ctx.fillRect(x, y + TILE_SIZE / 2 - 1, TILE_SIZE, 2);
-        // Lock icon
-        ctx.fillStyle = '#e74c3c';
-        ctx.font = '12px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillText('🔒', x + TILE_SIZE / 2, y + TILE_SIZE / 2 + 4);
+        // Door panels
+        ctx.fillStyle = '#4a3525';
+        ctx.fillRect(x + 4, y + 3, TILE_SIZE - 8, 11);
+        ctx.fillRect(x + 4, y + 18, TILE_SIZE - 8, 11);
+        // Panel insets
+        ctx.strokeStyle = '#3a2a1a';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x + 5, y + 4, TILE_SIZE - 10, 9);
+        ctx.strokeRect(x + 5, y + 19, TILE_SIZE - 10, 9);
+        // Door handle
+        ctx.fillStyle = '#c0a040';
+        ctx.beginPath();
+        ctx.arc(x + TILE_SIZE - 8, y + TILE_SIZE / 2, 2.5, 0, Math.PI * 2);
+        ctx.fill();
       }
     }
   }
@@ -379,10 +386,23 @@ function drawFurnitureItem(ctx, x, y, type) {
       ctx.fillRect(x + 10, y + S - 10, S - 20, 6);
       break;
     case 'chair':
-      ctx.fillStyle = '#5a5a5a';
-      ctx.fillRect(x + 8, y + 8, 16, 16);
-      ctx.fillStyle = '#6e6e6e';
-      ctx.fillRect(x + 10, y + 4, 12, 6);
+      // Classic wooden chair
+      // Legs
+      ctx.fillStyle = '#6b4226';
+      ctx.fillRect(x + 8, y + 22, 3, 8);
+      ctx.fillRect(x + 21, y + 22, 3, 8);
+      ctx.fillRect(x + 8, y + 10, 3, 8);
+      ctx.fillRect(x + 21, y + 10, 3, 8);
+      // Seat
+      ctx.fillStyle = '#8b5a2b';
+      ctx.fillRect(x + 7, y + 18, 18, 5);
+      // Backrest
+      ctx.fillStyle = '#6b4226';
+      ctx.fillRect(x + 7, y + 4, 18, 3);
+      ctx.fillRect(x + 7, y + 9, 18, 3);
+      // Back posts
+      ctx.fillRect(x + 8, y + 4, 3, 14);
+      ctx.fillRect(x + 21, y + 4, 3, 14);
       break;
     case 'table':
       ctx.fillStyle = '#a0522d';
