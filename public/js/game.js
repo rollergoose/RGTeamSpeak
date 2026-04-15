@@ -18,12 +18,16 @@ let joinedAt = 0;
 let onBoardProximity = null;
 let onOfficeProximityForKnock = null;
 let onKeyAction = null;
+let getSpeechBubblesFn = null;
 
-export function setCallbacks({ boardProximity, knockProximity, keyAction }) {
+export function setCallbacks({ boardProximity, knockProximity, keyAction, speechBubbles }) {
   onBoardProximity = boardProximity || null;
   onOfficeProximityForKnock = knockProximity || null;
   onKeyAction = keyAction || null;
+  getSpeechBubblesFn = speechBubbles || null;
 }
+
+export function getCamera() { return camera; }
 
 export function initGame(canvasEl, player, remotes) {
   canvas = canvasEl;
@@ -141,6 +145,19 @@ function gameLoop(timestamp) {
     }
   }
 
+  // Draw speech bubbles from chat
+  if (getSpeechBubblesFn) {
+    const bubbles = getSpeechBubblesFn();
+    for (const c of allChars) {
+      const bubble = bubbles.get(c.username);
+      if (bubble) {
+        const sx = c.x - camera.x;
+        const sy = c.y - camera.y;
+        drawChatBubble(ctx, sx, sy - 42, bubble.text);
+      }
+    }
+  }
+
   drawSessionTimer(ctx);
   drawInteractHint(ctx, nearBoard);
 
@@ -209,6 +226,37 @@ function drawInteractHint(ctx, nearBoard) {
   ctx.fillStyle = '#fff';
   ctx.fillText(text, cx, cy + 2);
   ctx.textAlign = 'center';
+}
+
+// ========== CHAT SPEECH BUBBLE ==========
+function drawChatBubble(ctx, sx, sy, text) {
+  ctx.font = '10px sans-serif';
+  const textW = ctx.measureText(text).width;
+  const bubbleW = Math.min(textW + 16, 200);
+  const bubbleH = 20;
+  const bx = sx - bubbleW / 2;
+  const by = sy - 24;
+
+  // White bubble with rounded corners
+  ctx.fillStyle = '#fff';
+  ctx.beginPath(); ctx.roundRect(bx, by, bubbleW, bubbleH, 8); ctx.fill();
+  ctx.strokeStyle = 'rgba(0,0,0,0.15)';
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.roundRect(bx, by, bubbleW, bubbleH, 8); ctx.stroke();
+
+  // Tail
+  ctx.fillStyle = '#fff';
+  ctx.beginPath();
+  ctx.moveTo(sx - 4, by + bubbleH);
+  ctx.lineTo(sx + 4, by + bubbleH);
+  ctx.lineTo(sx, by + bubbleH + 6);
+  ctx.fill();
+
+  // Text
+  ctx.fillStyle = '#222';
+  ctx.textAlign = 'center';
+  const display = text.length > 28 ? text.slice(0, 26) + '..' : text;
+  ctx.fillText(display, sx, by + 14);
 }
 
 // ========== KNOCK PROXIMITY DETECTION ==========

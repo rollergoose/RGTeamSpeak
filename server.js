@@ -63,6 +63,8 @@ io.on('connection', (socket) => {
       direction: 'down',
       zone: null,
       status: null, // { text, link }
+      joinedAt: Date.now(),
+      officeFurniture: [], // [{ id, type, x, y }] - placed items in their office
     };
 
     players.set(socket.id, player);
@@ -296,6 +298,53 @@ io.on('connection', (socket) => {
   socket.on('board:remove', ({ id }) => {
     planningBoard = planningBoard.filter(c => c.id !== id);
     io.emit('board:sync', { board: planningBoard });
+  });
+
+  // --- Online Players List ---
+  socket.on('players:list', () => {
+    const list = [];
+    for (const p of players.values()) {
+      list.push({
+        id: p.id,
+        username: p.username,
+        zone: p.zone,
+        joinedAt: p.joinedAt,
+        color: p.appearance.shirtColor || '#e94560',
+      });
+    }
+    socket.emit('players:list', { players: list });
+  });
+
+  // --- Office Furniture ---
+  socket.on('furniture:place', ({ type, x, y }) => {
+    const player = players.get(socket.id);
+    if (!player) return;
+    const item = {
+      id: crypto.randomUUID(),
+      type: (type || '').slice(0, 20),
+      x: Math.round(x),
+      y: Math.round(y),
+      owner: socket.id,
+    };
+    player.officeFurniture.push(item);
+    io.emit('furniture:update', { playerId: socket.id, furniture: player.officeFurniture });
+  });
+
+  socket.on('furniture:remove', ({ itemId }) => {
+    const player = players.get(socket.id);
+    if (!player) return;
+    player.officeFurniture = player.officeFurniture.filter(f => f.id !== itemId);
+    io.emit('furniture:update', { playerId: socket.id, furniture: player.officeFurniture });
+  });
+
+  socket.on('furniture:move', ({ itemId, x, y }) => {
+    const player = players.get(socket.id);
+    if (!player) return;
+    const item = player.officeFurniture.find(f => f.id === itemId);
+    if (!item) return;
+    item.x = Math.round(x);
+    item.y = Math.round(y);
+    io.emit('furniture:update', { playerId: socket.id, furniture: player.officeFurniture });
   });
 
   // --- Disconnect ---

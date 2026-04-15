@@ -1,6 +1,6 @@
 import { SKIN_TONES, HAIR_COLORS, SHIRT_COLORS, PANTS_COLORS, HAIR_STYLES, SPAWN_X, SPAWN_Y, ZONE_TYPES, BANDWIDTH_OPTIONS, DEFAULT_BANDWIDTH } from './constants.js';
 import { Player } from './player.js';
-import { initGame, setCallbacks, setInputFocused } from './game.js';
+import { initGame, setCallbacks, setInputFocused, getCamera } from './game.js';
 import { initChat } from './chat.js';
 import { initVoice, joinVoice, leaveVoice, toggleMute, setVoiceStateCallback, getIsMuted } from './voice.js';
 import { initScreenShare, startScreenShare, stopScreenShare, setBitrate, setScreenStateCallback, getIsSharing, getActiveSharer } from './screenshare.js';
@@ -124,6 +124,9 @@ function startApp(username) {
     setupStatusPanel();
     setupKnockUI();
     setupGameCallbacks();
+    setupOnlineHud();
+    setupChatMinimize();
+    setupFurnitureMenu();
   });
 
   network.on('auth:error', (data) => {
@@ -197,6 +200,7 @@ function setupZoneCallbacks() {
 
     if (zone.type === ZONE_TYPES.OFFICE) {
       statusPanel.classList.add('visible');
+      document.getElementById('furniture-menu').classList.add('visible');
     }
   });
 
@@ -215,6 +219,7 @@ function setupZoneCallbacks() {
 
     if (zone.type === ZONE_TYPES.OFFICE) {
       statusPanel.classList.remove('visible');
+      document.getElementById('furniture-menu').classList.remove('visible');
     }
   });
 }
@@ -450,7 +455,6 @@ function setupGameCallbacks() {
 
   setCallbacks({
     boardProximity: (nearBoard) => {
-      // Just track state — hint drawn by game.js
       boardHintShown = nearBoard;
     },
     knockProximity: (target) => {
@@ -466,7 +470,6 @@ function setupGameCallbacks() {
     },
     keyAction: (action) => {
       if (action === 'interact') {
-        // Check if near board
         const { isBoardNearby } = requireMap();
         if (isBoardNearby && isBoardNearby(localPlayer.x, localPlayer.y)) {
           if (isBoardOpen()) closeBoard();
@@ -474,6 +477,7 @@ function setupGameCallbacks() {
         }
       }
     },
+    speechBubbles: () => speechBubbles,
   });
 }
 
@@ -593,6 +597,185 @@ function setupScreenShareWindow() {
     }
   });
 }
+
+// === Online Players HUD ===
+function setupOnlineHud() {
+  const hud = document.getElementById('online-hud');
+  const list = document.getElementById('online-hud-list');
+  const count = document.getElementById('online-count');
+  const toggle = document.getElementById('online-hud-toggle');
+
+  toggle.addEventListener('click', () => { hud.classList.toggle('collapsed'); });
+
+  // Poll for player list every 3 seconds
+  function updateOnlineList() {
+    network.emit('players:list', {});
+  }
+
+  network.on('players:list', ({ players }) => {
+    count.textContent = players.length;
+    list.innerHTML = '';
+    const now = Date.now();
+    for (const p of players) {
+      const elapsed = now - p.joinedAt;
+      const h = Math.floor(elapsed / 3600000);
+      const m = Math.floor((elapsed % 3600000) / 60000);
+      const timeStr = h > 0 ? `${h}h${m}m` : `${m}m`;
+      const zoneName = p.zone || 'Lobby';
+
+      const el = document.createElement('div');
+      el.innerHTML = `
+        <div class="online-player">
+          <span class="online-dot" style="background:${escapeHtml(p.color)}"></span>
+          <span class="online-name">${escapeHtml(p.username)}</span>
+          <span class="online-time">${timeStr}</span>
+        </div>
+        <div class="online-zone">${escapeHtml(zoneName)}</div>
+      `;
+      list.appendChild(el);
+    }
+  });
+
+  setInterval(updateOnlineList, 3000);
+  updateOnlineList();
+}
+
+// === Chat Minimize + Badge + Speech Bubbles ===
+let chatMinimized = false;
+let unreadCount = 0;
+
+function setupChatMinimize() {
+  const sidebar = document.getElementById('chat-sidebar');
+  const toggleBtn = document.getElementById('chat-toggle-btn');
+  const minBtn = document.getElementById('chat-minimize-btn');
+  const badge = document.getElementById('chat-badge');
+
+  minBtn.addEventListener('click', () => {
+    chatMinimized = true;
+    sidebar.style.display = 'none';
+    toggleBtn.style.display = 'flex';
+    unreadCount = 0;
+    badge.style.display = 'none';
+  });
+
+  toggleBtn.addEventListener('click', () => {
+    chatMinimized = false;
+    sidebar.style.display = 'flex';
+    toggleBtn.style.display = 'none';
+    unreadCount = 0;
+    badge.style.display = 'none';
+  });
+
+  // Listen for chat messages to show badge + speech bubble
+  network.on('chat:message', (msg) => {
+    if (chatMinimized) {
+      unreadCount++;
+      badge.textContent = unreadCount;
+      badge.style.display = 'block';
+      // Re-trigger animation
+      badge.style.animation = 'none';
+      badge.offsetHeight; // force reflow
+      badge.style.animation = '';
+    }
+
+    // Show speech bubble over the sender's character
+    showSpeechBubble(msg.username, msg.message);
+  });
+}
+
+// Speech bubbles — store active bubbles, drawn by game.js
+const speechBubbles = new Map(); // username -> { text, expiresAt }
+
+function showSpeechBubble(username, message) {
+  const displayText = message.length > 30 ? message.slice(0, 28) + '..' : message;
+  speechBubbles.set(username, {
+    text: displayText,
+    expiresAt: Date.now() + 5000, // show for 5 seconds
+  });
+}
+
+// Export for game.js to read
+export function getSpeechBubbles() {
+  const now = Date.now();
+  for (const [key, val] of speechBubbles) {
+    if (now > val.expiresAt) speechBubbles.delete(key);
+  }
+  return speechBubbles;
+}
+
+// === Furniture Placement Menu ===
+let selectedFurniture = null;
+
+function setupFurnitureMenu() {
+  const menu = document.getElementById('furniture-menu');
+  const buttons = document.querySelectorAll('.furn-btn');
+  const canvas = document.getElementById('game-canvas');
+
+  buttons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const type = btn.dataset.type;
+      if (selectedFurniture === type) {
+        selectedFurniture = null;
+        btn.classList.remove('selected');
+      } else {
+        buttons.forEach(b => b.classList.remove('selected'));
+        selectedFurniture = type;
+        btn.classList.add('selected');
+      }
+    });
+  });
+
+  // Click on canvas to place furniture
+  canvas.addEventListener('click', (e) => {
+    if (!selectedFurniture) return;
+    if (!localPlayer) return;
+
+    // Check we're in our own office
+    const currentZone = getCurrentZoneFromZones();
+    if (!currentZone || currentZone.type !== ZONE_TYPES.OFFICE) return;
+
+    // Get world position from click
+    const rect = canvas.getBoundingClientRect();
+    const camModule = getCameraFromGame();
+    if (!camModule) return;
+
+    const worldX = e.clientX - rect.left + camModule.x;
+    const worldY = e.clientY - rect.top + camModule.y;
+
+    network.emit('furniture:place', {
+      type: selectedFurniture,
+      x: worldX,
+      y: worldY,
+    });
+
+    // Deselect
+    selectedFurniture = null;
+    document.querySelectorAll('.furn-btn').forEach(b => b.classList.remove('selected'));
+  });
+
+  // Right-click to remove furniture
+  canvas.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    // TODO: detect if right-clicking on a placed furniture item and remove it
+  });
+
+  // Show/hide menu based on zone
+  network.on('furniture:update', ({ playerId, furniture }) => {
+    const rp = remotePlayers.get(playerId);
+    if (rp) rp.officeFurniture = furniture;
+    if (playerId === network.getSocketId() && localPlayer) {
+      localPlayer.officeFurniture = furniture;
+    }
+  });
+}
+
+// Zone helpers — import from zones.js
+function getCurrentZoneFromZones() {
+  return getCurrentZone();
+}
+
+// Camera helper for furniture placement
+function getCameraFromGame() { return getCamera(); }
 
 // Run setup immediately (doesn't need auth)
 setupScreenShareWindow();

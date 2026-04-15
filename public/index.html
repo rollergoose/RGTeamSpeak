@@ -125,6 +125,35 @@
       </div>
     </div>
 
+    <!-- Online Players HUD -->
+    <div id="online-hud">
+      <div class="online-hud-header" id="online-hud-toggle">
+        <span>👥 Online</span>
+        <span id="online-count" class="online-badge">0</span>
+      </div>
+      <div id="online-hud-list" class="online-hud-list"></div>
+    </div>
+
+    <!-- Furniture placement menu (in office zones) -->
+    <div id="furniture-menu">
+      <div class="furniture-menu-header">🛋️ Decorate Office</div>
+      <div class="furniture-items" id="furniture-items">
+        <button class="furn-btn" data-type="chair" title="Chair">🪑</button>
+        <button class="furn-btn" data-type="table" title="Table">🪵</button>
+        <button class="furn-btn" data-type="couch" title="Couch">🛋️</button>
+        <button class="furn-btn" data-type="plant" title="Plant">🌿</button>
+        <button class="furn-btn" data-type="bookshelf" title="Bookshelf">📚</button>
+        <button class="furn-btn" data-type="whiteboard" title="Whiteboard">📋</button>
+        <button class="furn-btn" data-type="lamp" title="Lamp">💡</button>
+        <button class="furn-btn" data-type="rug" title="Rug">🟫</button>
+        <button class="furn-btn" data-type="poster" title="Poster">🖼️</button>
+        <button class="furn-btn" data-type="clock" title="Clock">🕐</button>
+        <button class="furn-btn" data-type="trophy" title="Trophy">🏆</button>
+        <button class="furn-btn" data-type="sign" title="Sign">🪧</button>
+      </div>
+      <p class="furniture-hint">Click an item, then click in your office to place it. Right-click placed items to remove.</p>
+    </div>
+
     <!-- Planning Board overlay -->
     <div id="board-overlay">
       <div class="board-header">
@@ -149,11 +178,18 @@
     </div>
   </div>
 
+  <!-- Chat toggle button (visible when chat is minimized) -->
+  <button id="chat-toggle-btn" style="display:none">
+    💬
+    <span id="chat-badge" class="chat-badge" style="display:none">0</span>
+  </button>
+
   <!-- === CHAT SIDEBAR === -->
   <div id="chat-sidebar" style="display:none">
     <div class="chat-header">
       <img src="/assets/logo.png" alt="Rollergoose" class="chat-logo">
       <span>Chat</span>
+      <button id="chat-minimize-btn" class="chat-min-btn" title="Minimize">—</button>
     </div>
     <div id="chat-messages"></div>
     <div class="chat-input-bar">
