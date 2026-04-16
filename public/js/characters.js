@@ -1,19 +1,29 @@
-import { CHAR_W, CHAR_H, SKIN_TONES, HAIR_COLORS } from './constants.js';
+import { CHAR_W, CHAR_H, SKIN_TONES, HAIR_COLORS, SHIRT_COLORS, PANTS_COLORS } from './constants.js';
 
-// Darken a hex color by a factor (0-1)
-function darken(hex, factor) {
+// Parse a #rrggbb hex. Returns null if the input isn't a valid 7-char hex string
+// (remote players occasionally arrive with partial appearance objects).
+function parseHex(hex) {
+  if (typeof hex !== 'string' || hex.length < 7 || hex[0] !== '#') return null;
   const r = parseInt(hex.slice(1, 3), 16);
   const g = parseInt(hex.slice(3, 5), 16);
   const b = parseInt(hex.slice(5, 7), 16);
-  const f = 1 - factor;
-  return `rgb(${Math.floor(r * f)},${Math.floor(g * f)},${Math.floor(b * f)})`;
+  if (Number.isNaN(r) || Number.isNaN(g) || Number.isNaN(b)) return null;
+  return { r, g, b };
 }
 
+// Darken a hex color by a factor (0-1). Falls back to black on invalid input.
+function darken(hex, factor) {
+  const c = parseHex(hex);
+  if (!c) return '#000';
+  const f = 1 - factor;
+  return `rgb(${Math.floor(c.r * f)},${Math.floor(c.g * f)},${Math.floor(c.b * f)})`;
+}
+
+// Lighten a hex color by a factor (0-1). Falls back to white on invalid input.
 function lighten(hex, factor) {
-  const r = parseInt(hex.slice(1, 3), 16);
-  const g = parseInt(hex.slice(3, 5), 16);
-  const b = parseInt(hex.slice(5, 7), 16);
-  return `rgb(${Math.min(255, Math.floor(r + (255 - r) * factor))},${Math.min(255, Math.floor(g + (255 - g) * factor))},${Math.min(255, Math.floor(b + (255 - b) * factor))})`;
+  const c = parseHex(hex);
+  if (!c) return '#fff';
+  return `rgb(${Math.min(255, Math.floor(c.r + (255 - c.r) * factor))},${Math.min(255, Math.floor(c.g + (255 - c.g) * factor))},${Math.min(255, Math.floor(c.b + (255 - c.b) * factor))})`;
 }
 
 /**
@@ -31,7 +41,14 @@ function lighten(hex, factor) {
 export function drawCharacter(ctx, sx, sy, appearance, direction, isMoving, animFrame, username, status = {}) {
   const x = Math.floor(sx - CHAR_W / 2);
   const y = Math.floor(sy - CHAR_H);
-  const { skinTone, hairStyle, hairColor, shirtColor, pantsColor } = appearance;
+  // Fall back to palette defaults for any missing field — remote players or old saves
+  // may arrive with partial appearance objects, and we don't want rendering to crash.
+  const a = appearance || {};
+  const skinTone   = a.skinTone   || SKIN_TONES[0];
+  const hairStyle  = a.hairStyle  || 'short';
+  const hairColor  = a.hairColor  || HAIR_COLORS[0];
+  const shirtColor = a.shirtColor || SHIRT_COLORS[5];
+  const pantsColor = a.pantsColor || PANTS_COLORS[0];
 
   // === Shadow ===
   ctx.fillStyle = 'rgba(0,0,0,0.18)';

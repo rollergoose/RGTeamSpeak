@@ -1,6 +1,6 @@
 import { SKIN_TONES, HAIR_COLORS, SHIRT_COLORS, PANTS_COLORS, HAIR_STYLES, SPAWN_X, SPAWN_Y, ZONE_TYPES, BANDWIDTH_OPTIONS, DEFAULT_BANDWIDTH, HATS, OUTFITS, FACES, LEVEL_CATEGORIES } from './constants.js';
 import { Player } from './player.js';
-import { initGame, setCallbacks, setInputFocused, getCamera } from './game.js';
+import { initGame, setCallbacks, setInputFocused, getCamera, triggerRemoteDeath } from './game.js';
 import { setLockedDoorChecker, setFurnitureCollider } from './player.js';
 import { initChat } from './chat.js';
 import { initVoice, joinVoice, leaveVoice, toggleMute, setVoiceStateCallback, getIsMuted } from './voice.js';
@@ -10,8 +10,9 @@ import { onZoneEnter, onZoneLeave, getCurrentZone } from './zones.js';
 import * as network from './network.js';
 import { RemotePlayer } from './network.js';
 import { drawCharacter } from './characters.js';
-import { initBoard, openBoard, closeBoard, loadBoard, isOpen_ as isBoardOpen } from './board.js';
+import { initBoard, openBoard, closeBoard, loadBoard, isOpen_ as isBoardOpen, setLocalStats as setBoardLocalStats } from './board.js';
 import { initPets, handlePetCommand, PET_TYPES } from './pets.js';
+import { initDogPark } from './dogpark.js';
 
 let localPlayer = null;
 const remotePlayers = new Map();
@@ -160,7 +161,10 @@ usernameInput.addEventListener('keydown', (e) => {
 async function startApp(username) {
   loginScreen.style.display = 'none';
   gameContainer.style.display = 'flex';
-  chatSidebar.style.display = 'flex';
+  // Chat starts minimized by default — user opens it via the top-right 💬 button.
+  chatSidebar.style.display = 'none';
+  const chatToggle = document.getElementById('chat-toggle-btn');
+  if (chatToggle) chatToggle.style.display = 'flex';
 
   // Connect first, then register handlers (socket is ready)
   await network.connect();
@@ -184,7 +188,12 @@ async function startApp(username) {
       initYouTube();
       initBoard();
       initPets();
+      initDogPark();
       if (data.planningBoard) loadBoard(data.planningBoard);
+      // Seed server-authoritative stats before setupLevelSystem() runs
+      if (data.stats || data.levels) {
+        applyServerStats({ stats: data.stats, levels: data.levels });
+      }
       setupZoneCallbacks();
       setupMeetingControls();
       setupNetworkHandlers();
@@ -237,7 +246,21 @@ function setupNetworkHandlers() {
 
   network.on('player:moved', (data) => {
     const rp = remotePlayers.get(data.id);
-    if (rp) rp.setTarget(data.x, data.y, data.direction, data.isMoving);
+    if (rp) {
+      // If this move arrives while the remote is in a death animation, clear it so the
+      // respawn position snaps into place instead of interpolating weirdly across the map.
+      if (rp.isDead) {
+        rp.x = data.x; rp.y = data.y;
+        rp.clearDeath();
+      }
+      rp.setTarget(data.x, data.y, data.direction, data.isMoving);
+    }
+  });
+
+  // Easter egg: a remote player was just hit by a car — animate their death locally.
+  network.on('player:died', ({ id }) => {
+    triggerRemoteDeath(id);
+    playMarioDeathSound();
   });
 
   network.on('voice:muted', ({ playerId, muted }) => {
@@ -595,9 +618,9 @@ function setupGameCallbacks() {
       if (target) {
         knockArea.classList.add('visible');
         document.getElementById('knock-target-name').textContent = target.zoneName;
-        // Show E hint only if someone is inside and we're outside
+        // Show Space=Knock hint whenever standing outside near a door (regardless of occupancy)
         const knockHintE = document.getElementById('knock-hint-e');
-        knockHintE.style.display = (!target.isInside && target.occupant) ? 'inline' : 'none';
+        knockHintE.style.display = !target.isInside ? 'inline' : 'none';
         // Update lock hint
         const lockHint = document.getElementById('lock-hint-text');
         const isLocked = officeLocks[target.zoneId]?.locked;
@@ -662,6 +685,10 @@ function setupGameCallbacks() {
         if (now > val.expiresAt) speechBubbles.delete(key);
       }
       return speechBubbles;
+    },
+    localDeath: () => {
+      // Car just hit us — Mario death sound + small notice. Camera/respawn handled in game.js.
+      playMarioDeathSound();
     },
   });
 }
@@ -1131,7 +1158,8 @@ function setupOnlineHud() {
 }
 
 // === Chat Minimize + Badge + Speech Bubbles ===
-let chatMinimized = false;
+// Chat starts minimized on login (startApp hides the sidebar and shows the toggle button).
+let chatMinimized = true;
 let unreadCount = 0;
 
 function setupChatMinimize() {
@@ -1183,16 +1211,15 @@ function setupChatMinimize() {
   });
   document.addEventListener('mouseup', () => { isResizingChat = false; });
 
-  // Initial offset (chat starts open)
+  // Initial offset — chat starts minimized, so the top-right row sits flush.
   updateTopRightOffset();
 
-  // Listen for chat messages to show badge + speech bubble
+  // Listen for chat messages to show red-dot notification + speech bubble
   network.on('chat:message', (msg) => {
-    if (chatMinimized) {
+    if (chatMinimized && msg.username !== localPlayer?.username) {
       unreadCount++;
-      badge.textContent = unreadCount;
       badge.style.display = 'block';
-      // Re-trigger animation
+      // Re-trigger pulse animation so each incoming message gives a visual nudge
       badge.style.animation = 'none';
       badge.offsetHeight; // force reflow
       badge.style.animation = '';
@@ -1285,9 +1312,8 @@ function setupFurnitureMenu() {
       y: worldY,
     });
 
-    // Deselect
-    selectedFurniture = null;
-    document.querySelectorAll('.furn-btn').forEach(b => b.classList.remove('selected'));
+    // Keep selection so the player can spam-place the same item.
+    // Click the highlighted button again (or press Esc) to deselect.
   });
 
   // Right-click to remove furniture (find nearest placed item)
@@ -1314,6 +1340,14 @@ function setupFurnitureMenu() {
     if (closest) {
       network.emit('furniture:remove', { itemId: closest.id });
     }
+  });
+
+  // Esc key clears the current furniture selection (since clicks no longer auto-deselect).
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    if (!selectedFurniture) return;
+    selectedFurniture = null;
+    document.querySelectorAll('.furn-btn.selected').forEach(b => b.classList.remove('selected'));
   });
 
   // Show/hide menu based on zone
@@ -1419,21 +1453,14 @@ function uploadSavedFurniture() {
   }
 }
 
-const STATS_KEY = 'rgteamspeak_stats';
+// === Player Stats & Levels (server-authoritative) ===
+// The server is the single source of truth for stats (persisted per username
+// in data/player-stats.json). Stats follow the username anywhere — only the
+// appearance/username prefs live in localStorage. See server.js bumpStat().
+let currentStats = { steps: 0, meetingTime: 0, feedbackGiven: 0, chatMessages: 0, tasksCompleted: 0 };
+let currentLevels = { explorer: 0, communicator: 0, feedback: 0, chatter: 0, achiever: 0 };
 
-function loadStats() {
-  try {
-    return JSON.parse(localStorage.getItem(STATS_KEY)) || {
-      steps: 0, meetingTime: 0, feedbackGiven: 0, chatMessages: 0, tasksCompleted: 0
-    };
-  } catch {
-    return { steps: 0, meetingTime: 0, feedbackGiven: 0, chatMessages: 0, tasksCompleted: 0 };
-  }
-}
-
-function saveStats(stats) {
-  try { localStorage.setItem(STATS_KEY, JSON.stringify(stats)); } catch {}
-}
+function loadStats() { return currentStats; }
 
 function getLevel(stat, perLevel) {
   return Math.min(10, Math.floor(stat / perLevel));
@@ -1455,37 +1482,84 @@ function getPlayerLevel(levels) {
   return total; // max 50
 }
 
-let prevLevelsCache = {};
+// Apply a server stats payload (shape: { stats, levels }) — unlock cosmetics if
+// player-level went up, refresh the stats panel + board XP strip.
+function applyServerStats({ stats, levels }) {
+  if (stats) currentStats = { ...currentStats, ...stats };
+  currentLevels = levels || getLevels(currentStats);
+  const playerLevel = getPlayerLevel(currentLevels);
+  if (playerLevel > playerMaxLevel) {
+    playerMaxLevel = playerLevel;
+    try {
+      const prefs = loadPreferences();
+      prefs.maxLevel = playerMaxLevel;
+      localStorage.setItem(SAVE_KEY, JSON.stringify(prefs));
+    } catch {}
+    buildCosmeticOptions('hat-options', HATS, 'hat');
+    buildCosmeticOptions('face-options', FACES, 'face');
+    buildCosmeticOptions('outfit-options', OUTFITS, 'outfit');
+  }
+  updateStatsPanel(currentStats, currentLevels);
+  setBoardLocalStats(currentStats, currentLevels);
+}
+
+// Emit a stat delta to the server. Server applies, persists, detects level-ups,
+// and broadcasts celebrate:levelup. Local UI updates optimistically for snappiness.
+function bumpServerStat(delta) {
+  if (!delta) return;
+  for (const [k, v] of Object.entries(delta)) {
+    if (typeof currentStats[k] !== 'number') currentStats[k] = 0;
+    currentStats[k] += v;
+  }
+  currentLevels = getLevels(currentStats);
+  updateStatsPanel(currentStats, currentLevels);
+  setBoardLocalStats(currentStats, currentLevels);
+  network.emit('stats:bump', { delta });
+}
 
 function setupLevelSystem() {
-  const stats = loadStats();
-  prevLevelsCache = getLevels(stats);
-  playerMaxLevel = getPlayerLevel(prevLevelsCache);
-  updateStatsPanel(stats, prevLevelsCache);
+  // auth:ok already seeded currentStats via applyServerStats — render once more.
+  updateStatsPanel(currentStats, currentLevels);
+  setBoardLocalStats(currentStats, currentLevels);
 
-  // Track steps
+  // Server pushes full stats on request or after bumps.
+  network.on('stats:sync', applyServerStats);
+
+  // Level-up broadcasts — server detects & broadcasts to everyone.
+  network.on('celebrate:levelup', ({ username, category, level, color }) => {
+    if (username === localPlayer?.username) {
+      // Me — fire the big popup + fanfare (existing UX)
+      showLevelUp(category, level);
+    } else {
+      showAchievementToast(`🎉 ${username} reached ${category} Lv ${level}!`, color);
+      playDingSound();
+    }
+  });
+
+  // Task-completion broadcast — mini celebration on every screen.
+  network.on('celebrate:task-done', ({ completer, color }) => {
+    spawnConfetti(document.body, 14, color ? [color, '#2ecc71', '#f1c40f'] : null);
+    playDingSound();
+  });
+
+  // Track steps — delta sent to server each tick if player moved.
   setInterval(() => {
     if (!localPlayer) return;
     const dx = localPlayer.x - lastStepX;
     const dy = localPlayer.y - lastStepY;
     const dist = Math.sqrt(dx * dx + dy * dy);
     if (dist > 5) {
-      const s = loadStats();
-      s.steps += Math.floor(dist / 16);
+      const steps = Math.floor(dist / 16);
       lastStepX = localPlayer.x;
       lastStepY = localPlayer.y;
-      saveStats(s);
-      checkLevelUps(s);
+      if (steps > 0) bumpServerStat({ steps });
     }
   }, 1000);
 
-  // Track chat messages
+  // Track chat messages — count only our own.
   network.on('chat:message', (msg) => {
     if (msg.username === localPlayer?.username) {
-      const s = loadStats();
-      s.chatMessages = (s.chatMessages || 0) + 1;
-      saveStats(s);
-      checkLevelUps(s);
+      bumpServerStat({ chatMessages: 1 });
     }
   });
 
@@ -1496,59 +1570,16 @@ function setupLevelSystem() {
   statsBtn.addEventListener('click', () => {
     const visible = statsPanel.style.display !== 'none';
     statsPanel.style.display = visible ? 'none' : 'block';
-    if (!visible) {
-      const s = loadStats();
-      updateStatsPanel(s, getLevels(s));
-    }
+    if (!visible) network.emit('stats:get', {});
   });
   statsClose.addEventListener('click', () => { statsPanel.style.display = 'none'; });
 }
 
-// Call this when posting a notice/feedback
-function trackFeedback() {
-  const s = loadStats();
-  s.feedbackGiven = (s.feedbackGiven || 0) + 1;
-  saveStats(s);
-  checkLevelUps(s);
-}
-
-function checkLevelUps(stats) {
-  const newLevels = getLevels(stats);
-  const newPlayerLevel = getPlayerLevel(newLevels);
-
-  // Check each category for level ups
-  for (const cat of LEVEL_CATEGORIES) {
-    const oldLvl = prevLevelsCache[cat.id] || 0;
-    const newLvl = newLevels[cat.id] || 0;
-    if (newLvl > oldLvl) {
-      showLevelUp(cat.name, newLvl);
-    }
-  }
-  prevLevelsCache = newLevels;
-
-  if (newPlayerLevel > playerMaxLevel) {
-    playerMaxLevel = newPlayerLevel;
-    try {
-      const prefs = loadPreferences();
-      prefs.maxLevel = playerMaxLevel;
-      localStorage.setItem(SAVE_KEY, JSON.stringify(prefs));
-    } catch {}
-    buildCosmeticOptions('hat-options', HATS, 'hat');
-    buildCosmeticOptions('face-options', FACES, 'face');
-    buildCosmeticOptions('outfit-options', OUTFITS, 'outfit');
-  }
-
-  updateStatsPanel(stats, newLevels);
-}
+function trackFeedback() { bumpServerStat({ feedbackGiven: 1 }); }
 
 function startMeetingTimer() {
   if (meetingInterval) return;
-  meetingInterval = setInterval(() => {
-    const s = loadStats();
-    s.meetingTime = (s.meetingTime || 0) + 1;
-    saveStats(s);
-    checkLevelUps(s);
-  }, 60000);
+  meetingInterval = setInterval(() => bumpServerStat({ meetingTime: 1 }), 60000);
 }
 
 function stopMeetingTimer() {
@@ -1572,6 +1603,34 @@ function updateStatsPanel(stats, levels) {
   }
 }
 
+const CONFETTI_COLORS = ['#f1c40f', '#e74c3c', '#3498db', '#2ecc71', '#9b59b6', '#e67e22', '#1abc9c'];
+
+// Spawn `count` confetti pieces inside `target`. Colors defaults to the rainbow palette.
+// Pieces self-remove via animationend so we don't leak DOM.
+function spawnConfetti(target, count = 30, colors) {
+  if (!target) return;
+  const palette = (Array.isArray(colors) && colors.length) ? colors : CONFETTI_COLORS;
+  // For the fullscreen levelup container we clear first; for ad-hoc targets we append.
+  const isLevelupContainer = target.id === 'levelup-confetti';
+  if (isLevelupContainer) target.innerHTML = '';
+  for (let i = 0; i < count; i++) {
+    const piece = document.createElement('div');
+    piece.className = 'confetti-piece';
+    piece.style.left = Math.random() * 100 + '%';
+    piece.style.backgroundColor = palette[Math.floor(Math.random() * palette.length)];
+    piece.style.animationDelay = Math.random() * 0.5 + 's';
+    piece.style.width = (4 + Math.random() * 8) + 'px';
+    piece.style.height = (4 + Math.random() * 8) + 'px';
+    if (!isLevelupContainer) {
+      piece.style.position = 'fixed';
+      piece.style.top = '20%';
+      piece.style.zIndex = '1200';
+      piece.addEventListener('animationend', () => piece.remove(), { once: true });
+    }
+    target.appendChild(piece);
+  }
+}
+
 function showLevelUp(category, level) {
   const popup = document.getElementById('levelup-popup');
   const detail = document.getElementById('levelup-detail');
@@ -1582,25 +1641,88 @@ function showLevelUp(category, level) {
   levelEl.textContent = `Level ${level} / 10`;
   popup.style.display = 'flex';
 
-  // Play sound
   playLevelUpSound();
-
-  // Confetti
-  confettiEl.innerHTML = '';
-  const colors = ['#f1c40f', '#e74c3c', '#3498db', '#2ecc71', '#9b59b6', '#e67e22', '#1abc9c'];
-  for (let i = 0; i < 30; i++) {
-    const piece = document.createElement('div');
-    piece.className = 'confetti-piece';
-    piece.style.left = Math.random() * 100 + '%';
-    piece.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
-    piece.style.animationDelay = Math.random() * 0.5 + 's';
-    piece.style.width = (4 + Math.random() * 8) + 'px';
-    piece.style.height = (4 + Math.random() * 8) + 'px';
-    confettiEl.appendChild(piece);
-  }
+  spawnConfetti(confettiEl, 30);
 
   // Auto dismiss after 5s
   setTimeout(() => { popup.style.display = 'none'; }, 5000);
+}
+
+// Short celebratory ding for task completions (and observer level-up toasts).
+// Intentionally subtle — not the full orchestral fanfare.
+function playDingSound() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const t = ctx.currentTime;
+    const playNote = (freq, start, dur, vol) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, t + start);
+      gain.gain.setValueAtTime(vol, t + start);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + start + dur);
+      osc.start(t + start); osc.stop(t + start + dur);
+    };
+    playNote(784, 0,    0.18, 0.12); // G5
+    playNote(1047, 0.09, 0.22, 0.10); // C6
+  } catch (e) { /* audio not available */ }
+}
+
+// Classic Mario-death jingle: a quick dip-down, then descending arpeggio, then a deep
+// stinger — plays locally when a car flattens you.
+function playMarioDeathSound() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const t = ctx.currentTime;
+    const playNote = (freq, start, dur, vol, type = 'square') => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.type = type;
+      osc.frequency.setValueAtTime(freq, t + start);
+      gain.gain.setValueAtTime(vol, t + start);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + start + dur);
+      osc.start(t + start); osc.stop(t + start + dur);
+    };
+    // "Oof" dip at impact
+    playNote(392, 0.00, 0.12, 0.12);  // G4
+    playNote(294, 0.08, 0.14, 0.10);  // D4
+    // Descending arpeggio — the iconic death melody
+    playNote(523, 0.18, 0.10, 0.12);  // C5
+    playNote(494, 0.28, 0.10, 0.12);  // B4
+    playNote(440, 0.38, 0.10, 0.12);  // A4
+    playNote(392, 0.48, 0.10, 0.12);  // G4
+    playNote(349, 0.58, 0.10, 0.12);  // F4
+    playNote(330, 0.68, 0.10, 0.12);  // E4
+    playNote(294, 0.78, 0.18, 0.14);  // D4 longer
+    // Deep thud
+    playNote(98,  1.00, 0.35, 0.18, 'sine');   // G2 low bass
+    playNote(65,  1.05, 0.35, 0.14, 'triangle'); // C2
+  } catch (e) { /* audio not available */ }
+}
+
+// Small achievement toast for celebrating someone ELSE's level-up.
+// Stacks if multiple arrive; auto-dismisses after ~3s.
+let toastContainerEl = null;
+function showAchievementToast(text, color) {
+  if (!toastContainerEl) {
+    toastContainerEl = document.createElement('div');
+    toastContainerEl.id = 'achievement-toasts';
+    document.body.appendChild(toastContainerEl);
+  }
+  const toast = document.createElement('div');
+  toast.className = 'achievement-toast';
+  toast.style.borderLeftColor = color || '#f1c40f';
+  toast.textContent = text;
+  toastContainerEl.appendChild(toast);
+  // Slide in, then after a delay slide out + remove
+  requestAnimationFrame(() => toast.classList.add('visible'));
+  setTimeout(() => {
+    toast.classList.remove('visible');
+    toast.classList.add('leaving');
+    setTimeout(() => toast.remove(), 300);
+  }, 3000);
 }
 
 function playLevelUpSound() {

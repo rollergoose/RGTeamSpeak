@@ -172,7 +172,7 @@
 
     <!-- Top-right button row -->
     <div id="top-right-buttons">
-      <button id="chat-toggle-btn" class="top-btn" style="display:none">💬<span id="chat-badge" class="chat-badge" style="display:none">0</span></button>
+      <button id="chat-toggle-btn" class="top-btn" style="display:none">💬<span id="chat-badge" class="chat-badge" style="display:none"></span></button>
       <button id="stats-btn" class="top-btn" title="Player Stats">🧑</button>
       <button id="online-btn" class="top-btn" title="Online Players">👥</button>
     </div>
@@ -197,6 +197,7 @@
         <button class="furn-tab" data-cat="walls">Walls & Floors</button>
         <button class="furn-tab" data-cat="decor">Decor</button>
         <button class="furn-tab" data-cat="gamedev">Gamedev</button>
+        <button class="furn-tab" data-cat="statues">Statues</button>
         <button class="furn-tab" data-cat="pets">Pets</button>
       </div>
       <div class="furn-grid" id="furniture-items">
@@ -211,6 +212,9 @@
         <button class="furn-btn" data-type="lamp" data-cat="essentials" title="Lamp">💡</button>
         <button class="furn-btn" data-type="plant" data-cat="essentials" title="Plant">🌿</button>
         <button class="furn-btn" data-type="trashcan" data-cat="essentials" title="Trash Can">🗑️</button>
+        <button class="furn-btn" data-type="filing_cabinet" data-cat="essentials" title="Filing Cabinet">🗄️</button>
+        <button class="furn-btn" data-type="office_chair" data-cat="essentials" title="Office Chair">💺</button>
+        <button class="furn-btn" data-type="coffee_machine" data-cat="essentials" title="Coffee Machine">☕</button>
         <button class="furn-btn" data-type="wall_h" data-cat="walls" title="Wall H">➖</button>
         <button class="furn-btn" data-type="wall_v" data-cat="walls" title="Wall V">|</button>
         <button class="furn-btn" data-type="divider" data-cat="walls" title="Divider">🧱</button>
@@ -235,6 +239,25 @@
         <button class="furn-btn" data-type="headphones" data-cat="gamedev" title="Headphones">🎧</button>
         <button class="furn-btn" data-type="keyboard" data-cat="gamedev" title="Mech Keyboard">⌨️</button>
         <button class="furn-btn" data-type="fan" data-cat="gamedev" title="Desk Fan">💨</button>
+        <button class="furn-btn" data-type="ceiling_fan" data-cat="decor" title="Ceiling Fan">🌀</button>
+        <button class="furn-btn" data-type="ceiling_light" data-cat="decor" title="Ceiling Light">💡</button>
+        <button class="furn-btn" data-type="aquarium" data-cat="decor" title="Aquarium">🐠</button>
+        <button class="furn-btn" data-type="lava_lamp" data-cat="decor" title="Lava Lamp">🌋</button>
+        <button class="furn-btn" data-type="bicycle" data-cat="decor" title="Bicycle">🚲</button>
+        <button class="furn-btn" data-type="neon_sign" data-cat="decor" title="Neon Sign">🪧</button>
+        <button class="furn-btn" data-type="donut_box" data-cat="decor" title="Box of Donuts">🍩</button>
+        <button class="furn-btn" data-type="statue_mickey" data-cat="statues" title="Mickey Mouse Statue">🐭</button>
+        <button class="furn-btn" data-type="statue_minnie" data-cat="statues" title="Minnie Mouse Statue">🎀</button>
+        <button class="furn-btn" data-type="statue_donald" data-cat="statues" title="Donald Duck Statue">🦆</button>
+        <button class="furn-btn" data-type="statue_goofy" data-cat="statues" title="Goofy Statue">🐶</button>
+        <button class="furn-btn" data-type="statue_spiderman" data-cat="statues" title="Spider-Man Statue">🕷️</button>
+        <button class="furn-btn" data-type="statue_ironman" data-cat="statues" title="Iron Man Statue">🤖</button>
+        <button class="furn-btn" data-type="statue_cap" data-cat="statues" title="Captain America Statue">🛡️</button>
+        <button class="furn-btn" data-type="statue_hulk" data-cat="statues" title="Hulk Statue">💚</button>
+        <button class="furn-btn" data-type="statue_pikachu" data-cat="statues" title="Pikachu Statue">⚡</button>
+        <button class="furn-btn" data-type="statue_charizard" data-cat="statues" title="Charizard Statue">🔥</button>
+        <button class="furn-btn" data-type="statue_eevee" data-cat="statues" title="Eevee Statue">🦊</button>
+        <button class="furn-btn" data-type="statue_mewtwo" data-cat="statues" title="Mewtwo Statue">🧬</button>
         <button class="furn-btn pet-btn" data-pet="dog_golden" data-cat="pets" title="Golden Retriever">🐕</button>
         <button class="furn-btn pet-btn" data-pet="dog_husky" data-cat="pets" title="Husky">🐺</button>
         <button class="furn-btn pet-btn" data-pet="dog_corgi" data-cat="pets" title="Corgi">🦊</button>
@@ -286,14 +309,23 @@
         </div>
       </div>
       <div class="board-content">
+        <div class="board-xp-strip">
+          <span class="board-xp-label">Team ✅ <b id="board-xp-total">0</b></span>
+          <span class="board-xp-you">You: Lv <b id="board-xp-you-lvl">0</b>/10 Achiever (<span id="board-xp-you-count">0</span> done)</span>
+          <div class="board-xp-bar"><div id="board-xp-bar-fill" class="board-xp-bar-fill"></div></div>
+        </div>
         <div class="board-columns">
-          <div class="board-column">
+          <div class="board-column" data-col="now">
             <div class="board-column-title">🔵 Doing Now</div>
-            <div id="board-now" class="board-cards"></div>
+            <div id="board-now" class="board-cards" data-col="now"></div>
           </div>
-          <div class="board-column">
+          <div class="board-column" data-col="next">
             <div class="board-column-title">⏭️ Up Next</div>
-            <div id="board-next" class="board-cards"></div>
+            <div id="board-next" class="board-cards" data-col="next"></div>
+          </div>
+          <div class="board-column" data-col="done">
+            <div class="board-column-title">✅ Done</div>
+            <div id="board-done" class="board-cards" data-col="done"></div>
           </div>
         </div>
       </div>

@@ -1,7 +1,7 @@
 // === Map ===
 export const TILE_SIZE = 32;
 export const MAP_COLS = 50;
-export const MAP_ROWS = 24;
+export const MAP_ROWS = 35;
 export const MAP_WIDTH = MAP_COLS * TILE_SIZE;
 export const MAP_HEIGHT = MAP_ROWS * TILE_SIZE;
 
@@ -28,6 +28,32 @@ export const T = {
   FENCE: 18,
   WINDOW: 19,
   BUS_SIGN: 20,
+  CROSSWALK: 21,
+  // Across-the-street venues
+  GYM_FLOOR: 22,
+  TREADMILL: 23,
+  WEIGHT_BENCH: 24,
+  DUMBBELL: 25,
+  GROCERY_FLOOR: 26,
+  SHELF: 27,
+  CASHIER: 28,
+  CINEMA_FLOOR: 29,
+  CINEMA_SEAT: 30,
+  CINEMA_SCREEN: 31,
+  DRAPE: 32,
+  // Dog park
+  AGILITY_HOOP: 33,
+  AGILITY_TUNNEL: 34,
+  AGILITY_JUMP: 35,
+  DOG_BONE: 36,
+  FRISBEE: 37,
+  PARK_FENCE: 38,
+  // Map decor
+  DONUT_BOX_TILE: 39,
+  PIZZA_BOX_TILE: 40,
+  PARK_BENCH: 41,
+  BBQ_GRILL: 42,
+  STREETLIGHT: 43,
 };
 
 // === Tile Colors ===
@@ -53,10 +79,37 @@ export const TILE_COLORS = {
   [T.FENCE]:         { fill: '#8b7355', post: '#6b5335' },
   [T.WINDOW]:        { fill: '#88ccee', frame: '#667788' },
   [T.BUS_SIGN]:      { fill: '#f1c40f', frame: '#888' },
+  [T.CROSSWALK]:     { fill: '#3a3a3a', stripe: '#f5f5f5' },
+  // Gym
+  [T.GYM_FLOOR]:     { fill: '#2c2f33', grid: '#23262a' },
+  [T.TREADMILL]:     { fill: '#1a1a1a', frame: '#888', screen: '#4488ff' },
+  [T.WEIGHT_BENCH]:  { fill: '#c0392b', frame: '#1a1a1a', accent: '#888' },
+  [T.DUMBBELL]:      { fill: '#1a1a1a', accent: '#666' },
+  // Grocery
+  [T.GROCERY_FLOOR]: { fill: '#ecf0f1', grid: '#d8dde0' },
+  [T.SHELF]:         { fill: '#8b6f47', surface: '#a07c52', items: ['#e74c3c', '#f1c40f', '#27ae60', '#3498db'] },
+  [T.CASHIER]:       { fill: '#2980b9', counter: '#bdc3c7', skin: '#f5c5a3', shirt: '#27ae60', hair: '#3d2314' },
+  // Cinema
+  [T.CINEMA_FLOOR]:  { fill: '#0f0f12', grid: '#16161a' },
+  [T.CINEMA_SEAT]:   { fill: '#7a1f25', cushion: '#a02530', accent: '#3a0a10' },
+  [T.CINEMA_SCREEN]: { fill: '#f5f5f0', frame: '#1a1a1a', glow: 'rgba(220,230,255,0.55)' },
+  [T.DRAPE]:         { fill: '#5a1218', highlight: '#7a1820', shadow: '#3a080d' },
+  // Dog park
+  [T.AGILITY_HOOP]:  { fill: '#e74c3c', frame: '#7f8c8d', accent: '#c0392b' },
+  [T.AGILITY_TUNNEL]:{ fill: '#3498db', stripe: '#2c80b4', shadow: '#205d85' },
+  [T.AGILITY_JUMP]:  { fill: '#ecf0f1', accent: '#e74c3c', post: '#7f8c8d' },
+  [T.DOG_BONE]:      { fill: '#f5e8c8', shadow: '#c4a878' },
+  [T.FRISBEE]:       { fill: '#f1c40f', accent: '#d4a40a' },
+  [T.PARK_FENCE]:    { fill: '#8b6f47', post: '#6b5335' },
+  [T.DONUT_BOX_TILE]:{ fill: '#e84393', accent: '#fff' },
+  [T.PIZZA_BOX_TILE]:{ fill: '#c0392b', cheese: '#f1c40f', crust: '#d4a574', pepperoni: '#a01818' },
+  [T.PARK_BENCH]:    { fill: '#5a3a1a', plank: '#7a5a2a', leg: '#1a1a1a' },
+  [T.BBQ_GRILL]:     { fill: '#1a1a1a', grate: '#666', flame: '#ff7a0a', flameHot: '#ffd24a' },
+  [T.STREETLIGHT]:   { fill: '#444', post: '#2a2a2a', glow: '#ffe28a' },
 };
 
 // === Which tiles block movement ===
-export const SOLID_TILES = new Set([T.WALL, T.DESK, T.TABLE, T.TV, T.COMPUTER, T.MEETING_TABLE, T.COUNTER, T.TOILET_TILE, T.PLANT, T.FENCE, T.WINDOW, T.BUS_SIGN]);
+export const SOLID_TILES = new Set([T.WALL, T.DESK, T.TABLE, T.TV, T.COMPUTER, T.MEETING_TABLE, T.COUNTER, T.TOILET_TILE, T.PLANT, T.FENCE, T.WINDOW, T.BUS_SIGN, T.TREADMILL, T.WEIGHT_BENCH, T.DUMBBELL, T.SHELF, T.CASHIER, T.CINEMA_SEAT, T.CINEMA_SCREEN, T.DRAPE, T.AGILITY_TUNNEL, T.PARK_FENCE, T.PARK_BENCH, T.BBQ_GRILL, T.STREETLIGHT, T.DONUT_BOX_TILE, T.PIZZA_BOX_TILE]);
 
 // === Player ===
 export const MOVE_SPEED = 2.5;
@@ -153,6 +206,10 @@ export const ZONE_TYPES = {
   TOILET: 'toilet',
   RESTING: 'resting',
   ARCHIVES: 'archives',
+  GYM: 'gym',
+  GROCERY: 'grocery',
+  CINEMA: 'cinema',
+  DOGPARK: 'dogpark',
 };
 
 // Spawn in the hallway (row 8, center)

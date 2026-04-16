@@ -2,9 +2,151 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const path = require('path');
+const fs = require('fs');
+const fsp = require('fs/promises');
 const crypto = require('crypto');
 const db = require('./db');
 const { initDb } = db;
+
+// === Server-authoritative persistence ===
+const DATA_DIR = path.join(__dirname, 'data');
+const BOARD_FILE = path.join(DATA_DIR, 'planning-board.json');
+const STATS_FILE = path.join(DATA_DIR, 'player-stats.json');
+
+// Level system — mirrored from public/js/constants.js LEVEL_CATEGORIES
+// id, display name, perLevel threshold, stat key
+const LEVEL_CATEGORIES = [
+  { id: 'explorer',     name: 'Explorer',     perLevel: 500, stat: 'steps' },
+  { id: 'communicator', name: 'Communicator', perLevel: 5,   stat: 'meetingTime' },
+  { id: 'feedback',     name: 'Feedback',     perLevel: 3,   stat: 'feedbackGiven' },
+  { id: 'chatter',      name: 'Chatter',      perLevel: 50,  stat: 'chatMessages' },
+  { id: 'achiever',     name: 'Achiever',     perLevel: 5,   stat: 'tasksCompleted' },
+];
+const STAT_KEYS = LEVEL_CATEGORIES.map(c => c.stat);
+
+function emptyStats() {
+  const s = {};
+  for (const k of STAT_KEYS) s[k] = 0;
+  return s;
+}
+
+function computeLevels(stats) {
+  const levels = {};
+  for (const cat of LEVEL_CATEGORIES) {
+    const val = stats[cat.stat] || 0;
+    levels[cat.id] = Math.min(10, Math.floor(val / cat.perLevel));
+  }
+  return levels;
+}
+
+function atomicWriteJsonSync(target, payload) {
+  const tmp = target + '.tmp';
+  fs.writeFileSync(tmp, JSON.stringify(payload, null, 2), 'utf8');
+  fs.renameSync(tmp, target);
+}
+async function atomicWriteJson(target, payload) {
+  const tmp = target + '.tmp';
+  await fsp.writeFile(tmp, JSON.stringify(payload, null, 2), 'utf8');
+  await fsp.rename(tmp, target);
+}
+
+function loadBoardFromDisk() {
+  try {
+    if (!fs.existsSync(BOARD_FILE)) return [];
+    const parsed = JSON.parse(fs.readFileSync(BOARD_FILE, 'utf8'));
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (e) {
+    console.error('Failed to load planning board:', e.message);
+    return [];
+  }
+}
+
+function loadStatsFromDisk() {
+  try {
+    if (!fs.existsSync(STATS_FILE)) return {};
+    const parsed = JSON.parse(fs.readFileSync(STATS_FILE, 'utf8'));
+    return (parsed && typeof parsed === 'object') ? parsed : {};
+  } catch (e) {
+    console.error('Failed to load player stats:', e.message);
+    return {};
+  }
+}
+
+let boardSaveTimer = null;
+function scheduleBoardSave() {
+  if (boardSaveTimer) clearTimeout(boardSaveTimer);
+  boardSaveTimer = setTimeout(async () => {
+    boardSaveTimer = null;
+    try {
+      await fsp.mkdir(DATA_DIR, { recursive: true });
+      await atomicWriteJson(BOARD_FILE, planningBoard);
+    } catch (e) { console.error('Failed to save planning board:', e.message); }
+  }, 1000);
+}
+
+let statsSaveTimer = null;
+function scheduleStatsSave() {
+  if (statsSaveTimer) clearTimeout(statsSaveTimer);
+  statsSaveTimer = setTimeout(async () => {
+    statsSaveTimer = null;
+    try {
+      await fsp.mkdir(DATA_DIR, { recursive: true });
+      await atomicWriteJson(STATS_FILE, persistentStats);
+    } catch (e) { console.error('Failed to save player stats:', e.message); }
+  }, 1000);
+}
+
+// In-memory mirror of stats file, keyed by username (lowercased for lookup, original case preserved in player obj)
+// Shape: { [username]: { steps, meetingTime, feedbackGiven, chatMessages, tasksCompleted } }
+const persistentStats = loadStatsFromDisk();
+
+function getStatsFor(username) {
+  if (!persistentStats[username]) {
+    persistentStats[username] = emptyStats();
+  } else {
+    // Backfill any new stat keys that didn't exist in older saves
+    for (const k of STAT_KEYS) {
+      if (typeof persistentStats[username][k] !== 'number') persistentStats[username][k] = 0;
+    }
+  }
+  return persistentStats[username];
+}
+
+// Apply a stat delta and broadcast level-up events to all clients.
+// Returns the updated stats + levels for the caller.
+function bumpStat(username, deltas, opts = {}) {
+  if (!username) return null;
+  const stats = getStatsFor(username);
+  const oldLevels = computeLevels(stats);
+
+  for (const [key, value] of Object.entries(deltas || {})) {
+    if (!STAT_KEYS.includes(key)) continue;
+    const num = Number(value);
+    if (!Number.isFinite(num) || num <= 0) continue;
+    // Cap per-event bumps to prevent spam-abuse
+    const capped = Math.min(num, opts.maxPerCall || 1000);
+    stats[key] = (stats[key] || 0) + capped;
+  }
+
+  const newLevels = computeLevels(stats);
+
+  // Broadcast level-ups (one per category that crossed)
+  const color = opts.color || '#e94560';
+  for (const cat of LEVEL_CATEGORIES) {
+    if (newLevels[cat.id] > oldLevels[cat.id]) {
+      io.emit('celebrate:levelup', {
+        username,
+        category: cat.name,
+        categoryId: cat.id,
+        level: newLevels[cat.id],
+        color,
+      });
+    }
+  }
+
+  scheduleStatsSave();
+  return { stats, levels: newLevels };
+}
 
 const app = express();
 const httpServer = http.createServer(app);
@@ -21,16 +163,13 @@ const voicePeers = new Set();    // socketIds currently in voice (meeting room)
 let screenSharer = null;         // socketId of current screen sharer
 let youtubeState = null;         // { url, videoId, startedAt, setBy }
 let serverRunning = false;
-let planningBoard = [];          // [{ id, assignee, task, duration, column, color }]
+let planningBoard = loadBoardFromDisk();  // [{ id, assignee, task, duration, column, color, completedBy?, completedAt? }]
 const officePets = new Map();    // petId -> { id, type, name, x, y, ownerId, zone }
 const sessionChat = [];          // in-memory chat messages (cleared on restart)
 // Notice boards: keyed by office zone id → array of notes
 const noticeBoards = { henrik: [], alice: [], leo: [] };
 // Office locks: keyed by office zone id → { locked, lockedBy }
 const officeLocks = { henrik: null, alice: null, leo: null };
-// Player levels: keyed by socketId → { steps, meetingTime, tasksCompleted }
-const playerStats = new Map();
-
 const SPAWN_X = 36 * 32;
 const SPAWN_Y = 18 * 32;
 
@@ -85,6 +224,7 @@ io.on('connection', (socket) => {
       }
     }
 
+    const userStats = getStatsFor(player.username);
     socket.emit('auth:ok', {
       id: socket.id,
       x: SPAWN_X,
@@ -92,6 +232,8 @@ io.on('connection', (socket) => {
       players: existingPlayers,
       youtubeState,
       planningBoard,
+      stats: userStats,
+      levels: computeLevels(userStats),
     });
 
     // Send session chat (in-memory only)
@@ -114,6 +256,13 @@ io.on('connection', (socket) => {
     player.y = y;
     player.direction = direction;
     socket.broadcast.emit('player:moved', { id: socket.id, x, y, direction, isMoving });
+  });
+
+  // --- Easter egg: hit-by-car death animation (relay only — respawn is client-driven) ---
+  socket.on('player:died', ({ x, y }) => {
+    const player = players.get(socket.id);
+    if (!player) return;
+    socket.broadcast.emit('player:died', { id: socket.id, x, y });
   });
 
   // --- Zone changes ---
@@ -324,31 +473,66 @@ io.on('connection', (socket) => {
   socket.on('board:add', ({ assignee, task, duration, column }) => {
     const player = players.get(socket.id);
     if (!player) return;
+    const validColumns = ['now', 'next', 'done'];
     const card = {
       id: crypto.randomUUID(),
       assignee: (assignee || '').slice(0, 30),
       task: (task || '').slice(0, 200),
       duration: (duration || '').slice(0, 30),
-      column: column === 'next' ? 'next' : 'now',
+      column: validColumns.includes(column) ? column : 'now',
       color: player.appearance.shirtColor || '#e94560',
     };
     planningBoard.push(card);
     io.emit('board:sync', { board: planningBoard });
+    scheduleBoardSave();
   });
 
   socket.on('board:update', ({ id, assignee, task, duration, column }) => {
     const card = planningBoard.find(c => c.id === id);
     if (!card) return;
+    const validColumns = ['now', 'next', 'done'];
     if (assignee !== undefined) card.assignee = (assignee || '').slice(0, 30);
     if (task !== undefined) card.task = (task || '').slice(0, 200);
     if (duration !== undefined) card.duration = (duration || '').slice(0, 30);
-    if (column !== undefined) card.column = column === 'next' ? 'next' : 'now';
+    if (column !== undefined && validColumns.includes(column)) card.column = column;
+    // If being moved out of 'done', clear completion metadata
+    if (column !== undefined && column !== 'done') {
+      delete card.completedBy;
+      delete card.completedAt;
+    }
     io.emit('board:sync', { board: planningBoard });
+    scheduleBoardSave();
+  });
+
+  socket.on('board:complete', ({ id }) => {
+    const player = players.get(socket.id);
+    if (!player) return;
+    const card = planningBoard.find(c => c.id === id);
+    if (!card) return;
+    // Only fire a celebration if this is a real state change (not already done)
+    if (card.column === 'done') return;
+    card.column = 'done';
+    card.completedBy = player.username;
+    card.completedAt = Date.now();
+    const color = player.appearance.shirtColor || '#e94560';
+    io.emit('board:sync', { board: planningBoard });
+    io.emit('celebrate:task-done', {
+      completer: player.username,
+      task: card.task,
+      color,
+    });
+    // Award XP to the completer — level-ups (if any) are auto-broadcast by bumpStat
+    const result = bumpStat(player.username, { tasksCompleted: 1 }, { color });
+    if (result) {
+      socket.emit('stats:sync', { stats: result.stats, levels: result.levels });
+    }
+    scheduleBoardSave();
   });
 
   socket.on('board:remove', ({ id }) => {
     planningBoard = planningBoard.filter(c => c.id !== id);
     io.emit('board:sync', { board: planningBoard });
+    scheduleBoardSave();
   });
 
   // --- Pets ---
@@ -477,45 +661,23 @@ io.on('connection', (socket) => {
     socket.emit('office:lock-sync', { locks: officeLocks });
   });
 
-  // --- Player Stats / Levels ---
-  socket.on('stats:update', ({ steps, meetingTime }) => {
+  // --- Player Stats / Levels (server-authoritative, persistent by username) ---
+  // Client sends a delta for one or more stat keys; server applies, detects level-ups, broadcasts.
+  socket.on('stats:bump', ({ delta }) => {
     const player = players.get(socket.id);
     if (!player) return;
-    if (!playerStats.has(socket.id)) {
-      playerStats.set(socket.id, { steps: 0, meetingTime: 0, tasksCompleted: 0 });
+    const color = player.appearance.shirtColor || '#e94560';
+    const result = bumpStat(player.username, delta || {}, { color });
+    if (result) {
+      socket.emit('stats:sync', { stats: result.stats, levels: result.levels });
     }
-    const stats = playerStats.get(socket.id);
-    const oldStepLevel = getLevel(stats.steps, 5000);
-    const oldMeetLevel = getLevel(stats.meetingTime, 60);
-
-    if (steps) stats.steps += steps;
-    if (meetingTime) stats.meetingTime += meetingTime;
-
-    const newStepLevel = getLevel(stats.steps, 5000);
-    const newMeetLevel = getLevel(stats.meetingTime, 60);
-
-    // Check for level ups
-    if (newStepLevel > oldStepLevel) {
-      socket.emit('level:up', { category: 'Explorer', level: newStepLevel, stat: 'steps' });
-    }
-    if (newMeetLevel > oldMeetLevel) {
-      socket.emit('level:up', { category: 'Communicator', level: newMeetLevel, stat: 'meetingTime' });
-    }
-
-    socket.emit('stats:sync', { stats, levels: {
-      explorer: newStepLevel,
-      communicator: newMeetLevel,
-      achiever: getLevel(stats.tasksCompleted, 10),
-    }});
   });
 
   socket.on('stats:get', () => {
-    const stats = playerStats.get(socket.id) || { steps: 0, meetingTime: 0, tasksCompleted: 0 };
-    socket.emit('stats:sync', { stats, levels: {
-      explorer: getLevel(stats.steps, 5000),
-      communicator: getLevel(stats.meetingTime, 60),
-      achiever: getLevel(stats.tasksCompleted, 10),
-    }});
+    const player = players.get(socket.id);
+    if (!player) return;
+    const stats = getStatsFor(player.username);
+    socket.emit('stats:sync', { stats, levels: computeLevels(stats) });
   });
 
   // --- YouTube sync controls ---
@@ -666,12 +828,6 @@ const ZONE_BOUNDS = {
   alice:  { x: 8 * 32, y: 10 * 32, w: 6 * 32, h: 6 * 32 },
   leo:    { x: 15 * 32, y: 10 * 32, w: 6 * 32, h: 6 * 32 },
 };
-
-// Level calculation: each level requires progressively more
-// Max level 10. thresholdPerLevel = amount of stat per level
-function getLevel(stat, thresholdPerLevel) {
-  return Math.min(10, Math.floor(stat / thresholdPerLevel));
-}
 
 function getZoneBounds(zoneId) {
   const z = ZONE_BOUNDS[zoneId];

@@ -22,9 +22,27 @@ export class Player {
     this.animFrame = 0;
     this.animTimer = 0;
     this.username = '';
+    // Mario-style death easter egg when hit by a car.
+    this.isDead = false;
+    this.deathStartTime = 0;
+  }
+
+  triggerDeath() {
+    if (this.isDead) return false;
+    this.isDead = true;
+    this.deathStartTime = performance.now();
+    this.isMoving = false;
+    return true;
+  }
+
+  clearDeath() {
+    this.isDead = false;
+    this.deathStartTime = 0;
   }
 
   update(keysDown, dt) {
+    // Ignore input while dead — the death animation owns the character until respawn.
+    if (this.isDead) { this.isMoving = false; return; }
     let dx = 0;
     let dy = 0;
 

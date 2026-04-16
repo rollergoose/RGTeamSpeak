@@ -57,6 +57,20 @@ export class RemotePlayer {
     this.isScreenSharing = false;
     this.workStatus = data.status || null;
     this.officeFurniture = [];
+    // Mario-style death easter egg (set when server relays player:died for this player).
+    this.isDead = false;
+    this.deathStartTime = 0;
+  }
+
+  triggerDeath() {
+    if (this.isDead) return;
+    this.isDead = true;
+    this.deathStartTime = performance.now();
+  }
+
+  clearDeath() {
+    this.isDead = false;
+    this.deathStartTime = 0;
   }
 
   setTarget(x, y, direction, isMoving) {
