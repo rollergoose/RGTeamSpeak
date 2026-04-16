@@ -80,9 +80,11 @@ function buildCosmeticOptions(containerId, items, key) {
   const container = document.getElementById(containerId);
   if (!container) return;
   container.innerHTML = '';
-  // Load saved max level
+  // Derive current max level from saved stats — always authoritative, unlike
+  // prefs.maxLevel which is only written on in-session level-ups.
+  const liveLevel = getPlayerLevel(getLevels(loadStats()));
   const saved = loadPreferences();
-  const maxLvl = saved.maxLevel || playerMaxLevel || 0;
+  const maxLvl = Math.max(liveLevel, saved.maxLevel || 0, playerMaxLevel || 0);
 
   items.forEach(item => {
     const btn = document.createElement('button');
