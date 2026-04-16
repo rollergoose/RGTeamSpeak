@@ -1735,6 +1735,14 @@ body {
   box-shadow: 0 2px 12px rgba(233,69,96,0.3);
 }
 
+/* Lift the bottom-left buttons above the furniture panel when it's open */
+body:has(#furniture-menu.visible) #furn-toggle-btn {
+  bottom: 180px;
+}
+body:has(#furniture-menu.visible) #status-toggle-btn {
+  bottom: 232px;
+}
+
 /* === FURNITURE MENU (bottom bar) === */
 #furniture-menu {
   position: absolute;
