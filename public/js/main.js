@@ -17,6 +17,10 @@ import { initDogPark } from './dogpark.js';
 let localPlayer = null;
 const remotePlayers = new Map();
 
+// Global shared office furniture. Populated from auth:ok and kept in sync via furniture:update
+// broadcasts. Any player can place, move, or remove any item.
+let globalFurniture = [];
+
 // === Login / Character Customization ===
 const loginScreen = document.getElementById('login-screen');
 const gameContainer = document.getElementById('game-container');
@@ -175,6 +179,7 @@ async function startApp(username) {
       localPlayer.username = username;
       localPlayer.status = { inMeeting: false, muted: false };
       localPlayer.workStatus = null;
+      localPlayer.level = 0; // seeded below via applyServerStats
 
       for (const p of (data.players || [])) {
         remotePlayers.set(p.id, new RemotePlayer(p));
@@ -208,16 +213,11 @@ async function startApp(username) {
       setupNoticeBoard();
       setupYouTubeControls();
 
-      // Furniture collision — returns all placed items from all players
-      setFurnitureCollider(() => {
-        const all = [];
-        if (localPlayer?.officeFurniture) all.push(...localPlayer.officeFurniture);
-        for (const rp of remotePlayers.values()) {
-          if (rp.officeFurniture) all.push(...rp.officeFurniture);
-        }
-        return all;
-      });
-      uploadSavedFurniture();
+      // Seed from server — single shared list for the whole office.
+      globalFurniture = Array.isArray(data.furniture) ? data.furniture : [];
+
+      // Furniture collision checker — every item affects everyone.
+      setFurnitureCollider(() => globalFurniture);
     } catch (err) {
       console.error('AUTH:OK HANDLER ERROR:', err);
     }
@@ -690,6 +690,7 @@ function setupGameCallbacks() {
       // Car just hit us — Mario death sound + small notice. Camera/respawn handled in game.js.
       playMarioDeathSound();
     },
+    allFurniture: () => globalFurniture,
   });
 }
 
@@ -1316,10 +1317,10 @@ function setupFurnitureMenu() {
     // Click the highlighted button again (or press Esc) to deselect.
   });
 
-  // Right-click to remove furniture (find nearest placed item)
+  // Right-click to remove furniture (find nearest placed item — any player's)
   canvas.addEventListener('contextmenu', (e) => {
     e.preventDefault();
-    if (!localPlayer || !localPlayer.officeFurniture) return;
+    if (!localPlayer || globalFurniture.length === 0) return;
     const cam = getCamera();
     if (!cam) return;
 
@@ -1327,10 +1328,10 @@ function setupFurnitureMenu() {
     const worldX = e.clientX - rect.left + cam.x;
     const worldY = e.clientY - rect.top + cam.y;
 
-    // Find the closest item within 32px
+    // Find the closest item within 32px — furniture is shared, anyone can remove anything
     let closest = null;
     let closestDist = 32;
-    for (const item of localPlayer.officeFurniture) {
+    for (const item of globalFurniture) {
       const dist = Math.sqrt((item.x - worldX) ** 2 + (item.y - worldY) ** 2);
       if (dist < closestDist) {
         closest = item;
@@ -1350,15 +1351,9 @@ function setupFurnitureMenu() {
     document.querySelectorAll('.furn-btn.selected').forEach(b => b.classList.remove('selected'));
   });
 
-  // Show/hide menu based on zone
-  network.on('furniture:update', ({ playerId, furniture }) => {
-    const rp = remotePlayers.get(playerId);
-    if (rp) rp.officeFurniture = furniture;
-    if (playerId === network.getSocketId() && localPlayer) {
-      localPlayer.officeFurniture = furniture;
-      // Save to localStorage so it persists
-      saveFurnitureLocally(furniture);
-    }
+  // Server is authoritative — just replace our local cache when the canonical list changes.
+  network.on('furniture:update', ({ furniture }) => {
+    globalFurniture = Array.isArray(furniture) ? furniture : [];
   });
 
   // Pet placement buttons
@@ -1431,27 +1426,8 @@ let lastStepX = 0, lastStepY = 0;
 let meetingSeconds = 0;
 let meetingInterval = null;
 
-// === Furniture localStorage ===
-const FURNITURE_KEY = 'rgteamspeak_furniture';
-
-function saveFurnitureLocally(furniture) {
-  try {
-    localStorage.setItem(FURNITURE_KEY, JSON.stringify(furniture));
-  } catch {}
-}
-
-function loadFurnitureLocally() {
-  try {
-    return JSON.parse(localStorage.getItem(FURNITURE_KEY)) || [];
-  } catch { return []; }
-}
-
-function uploadSavedFurniture() {
-  const saved = loadFurnitureLocally();
-  if (saved.length > 0) {
-    network.emit('furniture:upload', { furniture: saved });
-  }
-}
+// Clear any legacy localStorage furniture entry — server is the single source of truth now.
+try { localStorage.removeItem('rgteamspeak_furniture'); } catch {}
 
 // === Player Stats & Levels (server-authoritative) ===
 // The server is the single source of truth for stats (persisted per username
@@ -1488,6 +1464,8 @@ function applyServerStats({ stats, levels }) {
   if (stats) currentStats = { ...currentStats, ...stats };
   currentLevels = levels || getLevels(currentStats);
   const playerLevel = getPlayerLevel(currentLevels);
+  // Keep the local Player's total level in sync so hover nametags show the right number.
+  if (localPlayer) localPlayer.level = playerLevel;
   if (playerLevel > playerMaxLevel) {
     playerMaxLevel = playerLevel;
     try {
@@ -1526,7 +1504,13 @@ function setupLevelSystem() {
   network.on('stats:sync', applyServerStats);
 
   // Level-up broadcasts — server detects & broadcasts to everyone.
-  network.on('celebrate:levelup', ({ username, category, level, color }) => {
+  network.on('celebrate:levelup', ({ username, category, level, totalLevel, color }) => {
+    // Keep remote players' total level in sync for hover nametags.
+    if (typeof totalLevel === 'number' && username !== localPlayer?.username) {
+      for (const rp of remotePlayers.values()) {
+        if (rp.username === username) { rp.level = totalLevel; break; }
+      }
+    }
     if (username === localPlayer?.username) {
       // Me — fire the big popup + fanfare (existing UX)
       showLevelUp(category, level);

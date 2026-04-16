@@ -44,13 +44,15 @@ let onOfficeProximityForKnock = null;
 let onKeyAction = null;
 let getSpeechBubblesFn = null;
 let onLocalDeath = null; // fires once when the local player gets hit — main.js plays sound
+let getAllFurnitureFn = null; // returns a Map<username, items[]>
 
-export function setCallbacks({ boardProximity, knockProximity, keyAction, speechBubbles, localDeath }) {
+export function setCallbacks({ boardProximity, knockProximity, keyAction, speechBubbles, localDeath, allFurniture }) {
   onBoardProximity = boardProximity || null;
   onOfficeProximityForKnock = knockProximity || null;
   onKeyAction = keyAction || null;
   getSpeechBubblesFn = speechBubbles || null;
   if (localDeath) onLocalDeath = localDeath;
+  if (allFurniture) getAllFurnitureFn = allFurniture;
 }
 
 // Returns the vertical offset (pixels, negative = up, positive = down) for a Mario-style
@@ -263,6 +265,7 @@ function gameLoop(timestamp) {
     isMoving: localPlayer.isMoving,
     animFrame: localPlayer.animFrame,
     username: localPlayer.username,
+    level: localPlayer.level || 0,
     playerStatus: localPlayer.status || {},
     workStatus: localPlayer.workStatus || null,
     zone: getCurrentZone()?.id || null,
@@ -278,6 +281,7 @@ function gameLoop(timestamp) {
       isMoving: rp.isMoving,
       animFrame: rp.animFrame,
       username: rp.username,
+      level: rp.level || 0,
       playerStatus: { inMeeting: rp.inMeeting, muted: rp.muted },
       workStatus: rp.workStatus || null,
       zone: rp.zone,
@@ -318,7 +322,7 @@ function gameLoop(timestamp) {
       if (mouseCanvasX >= sx - CHAR_W / 2 && mouseCanvasX <= sx + CHAR_W / 2 &&
           mouseCanvasY >= sy - CHAR_H     && mouseCanvasY <= sy) {
         const accent = c.appearance?.shirtColor || '#e94560';
-        drawNametag(ctx, sx, sy - CHAR_H - 6, c.username, accent);
+        drawNametag(ctx, sx, sy - CHAR_H - 6, c.username, accent, c.level || 0);
         break;
       }
     }
@@ -399,13 +403,16 @@ function drawStatusBubble(ctx, sx, sy, workStatus) {
 }
 
 // Draws a small pill-shaped nametag with a downward pointer above a character.
-// (sx, sy) is the pointer tip — the label floats above it.
-function drawNametag(ctx, sx, sy, username, accentColor) {
+// (sx, sy) is the pointer tip — the label floats above it. Shows "Name · Lv N" when a level is provided.
+function drawNametag(ctx, sx, sy, username, accentColor, level = 0) {
   const name = String(username);
+  const levelText = `Lv ${Math.max(0, Math.min(50, level | 0))}`;
   ctx.font = 'bold 11px monospace';
   const padX = 8;
-  const padY = 4;
-  const textW = ctx.measureText(name).width;
+  const nameW = ctx.measureText(name).width;
+  const sepW = ctx.measureText(' · ').width;
+  const lvW = ctx.measureText(levelText).width;
+  const textW = nameW + sepW + lvW;
   const boxW = Math.ceil(textW + padX * 2);
   const boxH = 18;
   const boxX = Math.round(sx - boxW / 2);
@@ -429,11 +436,20 @@ function drawNametag(ctx, sx, sy, username, accentColor) {
   ctx.closePath();
   ctx.fill();
 
-  // Username text
-  ctx.fillStyle = '#fff';
-  ctx.textAlign = 'center';
+  // Text — username white, separator dim, level accent-colored so it reads as a stat
+  ctx.textAlign = 'left';
   ctx.textBaseline = 'middle';
-  ctx.fillText(name, sx, boxY + boxH / 2 + 1);
+  const textY = boxY + boxH / 2 + 1;
+  let cursorX = boxX + padX;
+  ctx.fillStyle = '#fff';
+  ctx.fillText(name, cursorX, textY);
+  cursorX += nameW;
+  ctx.fillStyle = '#778899';
+  ctx.fillText(' · ', cursorX, textY);
+  cursorX += sepW;
+  ctx.fillStyle = accentColor || '#f1c40f';
+  ctx.fillText(levelText, cursorX, textY);
+  ctx.textAlign = 'center';
   ctx.textBaseline = 'alphabetic';
 }
 
@@ -567,15 +583,8 @@ function getFurnitureLayer(type) {
 }
 
 function drawPlacedFurniture(ctx, camera, layer = 'regular') {
-  const allFurniture = [];
-  if (localPlayer && localPlayer.officeFurniture) {
-    for (const item of localPlayer.officeFurniture) allFurniture.push(item);
-  }
-  for (const rp of remotePlayers.values()) {
-    if (rp.officeFurniture) {
-      for (const item of rp.officeFurniture) allFurniture.push(item);
-    }
-  }
+  // Furniture is now a single shared global list — pull it via the callback set in main.js.
+  const allFurniture = (getAllFurnitureFn && getAllFurnitureFn()) || [];
 
   for (const item of allFurniture) {
     if (getFurnitureLayer(item.type) !== layer) continue;
@@ -819,6 +828,27 @@ function drawFurnitureItem(ctx, x, y, type) {
       ctx.beginPath(); ctx.moveTo(x + 20, y + 8); ctx.lineTo(x + 18, y + 20); ctx.stroke();
       // Handle
       ctx.fillStyle = '#444'; ctx.fillRect(x + S - 8, y + 12, 2, 8);
+      break;
+    case 'redbull_fridge':
+      // Mini fridge — silver body with Red Bull navy-blue/red branding
+      ctx.fillStyle = '#d0d0d0'; // silver body
+      ctx.fillRect(x + 4, y + 2, S - 8, S - 4);
+      ctx.fillStyle = '#9a9a9a'; // top shelf shadow
+      ctx.fillRect(x + 4, y + 2, S - 8, 3);
+      // Red Bull blue band
+      ctx.fillStyle = '#002654';
+      ctx.fillRect(x + 4, y + 10, S - 8, 12);
+      // Yellow sun/disc (Red Bull logo backdrop)
+      ctx.fillStyle = '#ffcc00';
+      ctx.beginPath(); ctx.arc(x + 16, y + 16, 4, 0, Math.PI * 2); ctx.fill();
+      // Two charging red "bulls" (abstract dashes)
+      ctx.fillStyle = '#d90429';
+      ctx.fillRect(x + 10, y + 13, 4, 2);
+      ctx.fillRect(x + 18, y + 17, 4, 2);
+      // Handle
+      ctx.fillStyle = '#555'; ctx.fillRect(x + S - 8, y + 12, 2, 8);
+      // Bottom trim
+      ctx.fillStyle = '#666'; ctx.fillRect(x + 4, y + S - 5, S - 8, 1);
       break;
     case 'mic':
       // Recording mic with sound booth padding

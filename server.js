@@ -39,6 +39,16 @@ function computeLevels(stats) {
   return levels;
 }
 
+// Sum of all category levels (max 50 across 5 categories × 10 each). Shown on hover nametags.
+function computeTotalLevel(statsOrLevels) {
+  // Accepts either a stats object (with stat keys) or an already-computed levels object
+  const levels = (statsOrLevels && typeof statsOrLevels === 'object' && 'achiever' in statsOrLevels)
+    ? statsOrLevels : computeLevels(statsOrLevels || {});
+  let total = 0;
+  for (const cat of LEVEL_CATEGORIES) total += levels[cat.id] || 0;
+  return total;
+}
+
 function atomicWriteJsonSync(target, payload) {
   const tmp = target + '.tmp';
   fs.writeFileSync(tmp, JSON.stringify(payload, null, 2), 'utf8');
@@ -100,6 +110,64 @@ function scheduleStatsSave() {
 // Shape: { [username]: { steps, meetingTime, feedbackGiven, chatMessages, tasksCompleted } }
 const persistentStats = loadStatsFromDisk();
 
+// Furniture persistence — single shared list. Anyone can place, move, or remove any item.
+// Shape: [{ id, type, x, y }, ...] capped at MAX_FURNITURE items.
+const FURNITURE_FILE = path.join(DATA_DIR, 'office-furniture.json');
+const LEGACY_FURNITURE_FILE = path.join(DATA_DIR, 'player-furniture.json');
+const MAX_FURNITURE = 300;
+
+function loadFurnitureFromDisk() {
+  try {
+    if (fs.existsSync(FURNITURE_FILE)) {
+      const parsed = JSON.parse(fs.readFileSync(FURNITURE_FILE, 'utf8'));
+      return Array.isArray(parsed) ? parsed : [];
+    }
+    // Migrate legacy per-username format into a flat list.
+    if (fs.existsSync(LEGACY_FURNITURE_FILE)) {
+      const parsed = JSON.parse(fs.readFileSync(LEGACY_FURNITURE_FILE, 'utf8'));
+      if (parsed && typeof parsed === 'object') {
+        const flat = [];
+        for (const items of Object.values(parsed)) {
+          if (Array.isArray(items)) flat.push(...items);
+        }
+        console.log(`Migrated ${flat.length} furniture items from per-user → global storage.`);
+        return flat;
+      }
+    }
+    return [];
+  } catch (e) {
+    console.error('Failed to load furniture:', e.message);
+    return [];
+  }
+}
+
+let persistentFurniture = loadFurnitureFromDisk();
+
+let furnitureSaveTimer = null;
+function scheduleFurnitureSave() {
+  if (furnitureSaveTimer) clearTimeout(furnitureSaveTimer);
+  furnitureSaveTimer = setTimeout(async () => {
+    furnitureSaveTimer = null;
+    try {
+      await fsp.mkdir(DATA_DIR, { recursive: true });
+      await atomicWriteJson(FURNITURE_FILE, persistentFurniture);
+      // Best-effort cleanup of the legacy file after first successful save of the new format.
+      if (fs.existsSync(LEGACY_FURNITURE_FILE)) {
+        try { await fsp.unlink(LEGACY_FURNITURE_FILE); } catch {}
+      }
+    } catch (e) { console.error('Failed to save furniture:', e.message); }
+  }, 1000);
+}
+
+function sanitizeFurnitureItem(raw) {
+  return {
+    id: raw.id || crypto.randomUUID(),
+    type: String(raw.type || '').slice(0, 20),
+    x: Math.round(Number(raw.x) || 0),
+    y: Math.round(Number(raw.y) || 0),
+  };
+}
+
 function getStatsFor(username) {
   if (!persistentStats[username]) {
     persistentStats[username] = emptyStats();
@@ -129,8 +197,16 @@ function bumpStat(username, deltas, opts = {}) {
   }
 
   const newLevels = computeLevels(stats);
+  const newTotal = computeTotalLevel(newLevels);
 
-  // Broadcast level-ups (one per category that crossed)
+  // If this username is currently online, keep their player-object level in sync so the
+  // hover nametag reflects the new value.
+  for (const p of players.values()) {
+    if (p.username === username) { p.level = newTotal; break; }
+  }
+
+  // Broadcast level-ups (one per category that crossed) — include totalLevel so clients can
+  // update the remote player's nametag without a separate round-trip.
   const color = opts.color || '#e94560';
   for (const cat of LEVEL_CATEGORIES) {
     if (newLevels[cat.id] > oldLevels[cat.id]) {
@@ -139,6 +215,7 @@ function bumpStat(username, deltas, opts = {}) {
         category: cat.name,
         categoryId: cat.id,
         level: newLevels[cat.id],
+        totalLevel: newTotal,
         color,
       });
     }
@@ -201,6 +278,7 @@ io.on('connection', (socket) => {
       }
     }
 
+    const initialStats = getStatsFor(username);
     const player = {
       id: socket.id,
       username,
@@ -211,7 +289,7 @@ io.on('connection', (socket) => {
       zone: null,
       status: null, // { text, link }
       joinedAt: Date.now(),
-      officeFurniture: [], // [{ id, type, x, y }] - placed items in their office
+      level: computeTotalLevel(initialStats), // 0-50; shown on hover nametag
     };
 
     players.set(socket.id, player);
@@ -224,7 +302,6 @@ io.on('connection', (socket) => {
       }
     }
 
-    const userStats = getStatsFor(player.username);
     socket.emit('auth:ok', {
       id: socket.id,
       x: SPAWN_X,
@@ -232,8 +309,9 @@ io.on('connection', (socket) => {
       players: existingPlayers,
       youtubeState,
       planningBoard,
-      stats: userStats,
-      levels: computeLevels(userStats),
+      stats: initialStats,
+      levels: computeLevels(initialStats),
+      furniture: persistentFurniture,
     });
 
     // Send session chat (in-memory only)
@@ -704,52 +782,33 @@ io.on('connection', (socket) => {
     socket.emit('players:list', { players: list });
   });
 
-  // --- Office Furniture ---
-  // Upload saved furniture layout from localStorage on connect
-  socket.on('furniture:upload', ({ furniture }) => {
-    const player = players.get(socket.id);
-    if (!player) return;
-    if (!Array.isArray(furniture)) return;
-    // Validate and sanitize
-    player.officeFurniture = furniture.slice(0, 50).map(f => ({
-      id: f.id || crypto.randomUUID(),
-      type: (f.type || '').slice(0, 20),
-      x: Math.round(f.x || 0),
-      y: Math.round(f.y || 0),
-      owner: socket.id,
-    }));
-    io.emit('furniture:update', { playerId: socket.id, furniture: player.officeFurniture });
-  });
-
+  // --- Office Furniture (global, shared — anyone can place, move, or remove any item) ---
   socket.on('furniture:place', ({ type, x, y }) => {
-    const player = players.get(socket.id);
-    if (!player) return;
-    const item = {
-      id: crypto.randomUUID(),
-      type: (type || '').slice(0, 20),
-      x: Math.round(x),
-      y: Math.round(y),
-      owner: socket.id,
-    };
-    player.officeFurniture.push(item);
-    io.emit('furniture:update', { playerId: socket.id, furniture: player.officeFurniture });
+    if (!players.get(socket.id)) return;
+    if (persistentFurniture.length >= MAX_FURNITURE) return;
+    const item = sanitizeFurnitureItem({ type, x, y });
+    persistentFurniture.push(item);
+    io.emit('furniture:update', { furniture: persistentFurniture });
+    scheduleFurnitureSave();
   });
 
   socket.on('furniture:remove', ({ itemId }) => {
-    const player = players.get(socket.id);
-    if (!player) return;
-    player.officeFurniture = player.officeFurniture.filter(f => f.id !== itemId);
-    io.emit('furniture:update', { playerId: socket.id, furniture: player.officeFurniture });
+    if (!players.get(socket.id)) return;
+    const idx = persistentFurniture.findIndex(f => f.id === itemId);
+    if (idx === -1) return;
+    persistentFurniture.splice(idx, 1);
+    io.emit('furniture:update', { furniture: persistentFurniture });
+    scheduleFurnitureSave();
   });
 
   socket.on('furniture:move', ({ itemId, x, y }) => {
-    const player = players.get(socket.id);
-    if (!player) return;
-    const item = player.officeFurniture.find(f => f.id === itemId);
+    if (!players.get(socket.id)) return;
+    const item = persistentFurniture.find(f => f.id === itemId);
     if (!item) return;
-    item.x = Math.round(x);
-    item.y = Math.round(y);
-    io.emit('furniture:update', { playerId: socket.id, furniture: player.officeFurniture });
+    item.x = Math.round(Number(x) || 0);
+    item.y = Math.round(Number(y) || 0);
+    io.emit('furniture:update', { furniture: persistentFurniture });
+    scheduleFurnitureSave();
   });
 
   // --- Disconnect ---

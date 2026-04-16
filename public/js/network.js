@@ -56,7 +56,8 @@ export class RemotePlayer {
     this.inMeeting = false;
     this.isScreenSharing = false;
     this.workStatus = data.status || null;
-    this.officeFurniture = [];
+    // Total player level 0-50 (sum of 5 categories × 10). Shown on hover nametag.
+    this.level = typeof data.level === 'number' ? data.level : 0;
     // Mario-style death easter egg (set when server relays player:died for this player).
     this.isDead = false;
     this.deathStartTime = 0;
