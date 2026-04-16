@@ -590,16 +590,12 @@ function setupGameCallbacks() {
     knockProximity: (target) => {
       currentKnockTarget = target;
       const knockArea = document.getElementById('knock-area');
-      const knockBtn = document.getElementById('knock-btn');
-      const noticeBtn = document.getElementById('notice-open-btn');
       if (target) {
         knockArea.classList.add('visible');
         document.getElementById('knock-target-name').textContent = target.zoneName;
         // Show E hint only if someone is inside and we're outside
         const knockHintE = document.getElementById('knock-hint-e');
         knockHintE.style.display = (!target.isInside && target.occupant) ? 'inline' : 'none';
-        // Hide notice board from outside (opens auto inside)
-        noticeBtn.style.display = target.isInside ? 'none' : 'inline-block';
         // Update lock hint
         const lockHint = document.getElementById('lock-hint-text');
         const isLocked = officeLocks[target.zoneId]?.locked;
@@ -1133,6 +1129,15 @@ function setupChatMinimize() {
   const toggleBtn = document.getElementById('chat-toggle-btn');
   const minBtn = document.getElementById('chat-minimize-btn');
   const badge = document.getElementById('chat-badge');
+  const topRight = document.getElementById('top-right-buttons');
+
+  function updateTopRightOffset() {
+    if (sidebar.style.display === 'none' || getComputedStyle(sidebar).display === 'none') {
+      topRight.style.right = '8px';
+    } else {
+      topRight.style.right = (sidebar.offsetWidth + 8) + 'px';
+    }
+  }
 
   minBtn.addEventListener('click', () => {
     chatMinimized = true;
@@ -1140,6 +1145,7 @@ function setupChatMinimize() {
     toggleBtn.style.display = 'flex';
     unreadCount = 0;
     badge.style.display = 'none';
+    updateTopRightOffset();
   });
 
   toggleBtn.addEventListener('click', () => {
@@ -1148,6 +1154,7 @@ function setupChatMinimize() {
     toggleBtn.style.display = 'none';
     unreadCount = 0;
     badge.style.display = 'none';
+    updateTopRightOffset();
   });
 
   // Chat sidebar resize
@@ -1162,8 +1169,12 @@ function setupChatMinimize() {
     const newWidth = window.innerWidth - e.clientX;
     sidebar.style.width = Math.max(200, Math.min(600, newWidth)) + 'px';
     sidebar.style.minWidth = sidebar.style.width;
+    updateTopRightOffset();
   });
   document.addEventListener('mouseup', () => { isResizingChat = false; });
+
+  // Initial offset (chat starts open)
+  updateTopRightOffset();
 
   // Listen for chat messages to show badge + speech bubble
   network.on('chat:message', (msg) => {
@@ -1333,20 +1344,6 @@ function getCameraFromGame() { return getCamera(); }
 let officeLocks = {};
 
 function setupOfficeLocks() {
-  const lockBtn = document.getElementById('lock-toggle-btn');
-  const lockStatus = document.getElementById('knock-lock-status');
-
-  lockBtn.addEventListener('click', () => {
-    if (!currentKnockTarget) return;
-    const officeId = currentKnockTarget.zoneId;
-    const isLocked = officeLocks[officeId]?.locked;
-    if (isLocked) {
-      network.emit('office:unlock', { officeId });
-    } else {
-      network.emit('office:lock', { officeId });
-    }
-  });
-
   network.on('office:lock-sync', ({ locks }) => {
     officeLocks = locks;
     window._officeLocks = locks; // expose for game.js locked door rendering
@@ -1373,17 +1370,14 @@ function setupOfficeLocks() {
 
 function updateLockUI() {
   const lockStatus = document.getElementById('knock-lock-status');
-  const lockBtn = document.getElementById('lock-toggle-btn');
-  if (!currentKnockTarget) return;
+  if (!currentKnockTarget || !lockStatus) return;
   const lock = officeLocks[currentKnockTarget.zoneId];
   if (lock && lock.locked) {
     lockStatus.textContent = `🔒 Busy (${lock.lockedBy})`;
     lockStatus.className = 'lock-locked';
-    lockBtn.textContent = '🔓 Unlock';
+    lockStatus.style.display = 'inline';
   } else {
-    lockStatus.textContent = '🔓 Available';
-    lockStatus.className = 'lock-unlocked';
-    lockBtn.textContent = '🔒 Lock';
+    lockStatus.style.display = 'none';
   }
 }
 
