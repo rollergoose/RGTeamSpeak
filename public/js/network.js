@@ -58,6 +58,8 @@ export class RemotePlayer {
     this.workStatus = data.status || null;
     // Total player level 0-50 (sum of 5 categories × 10). Shown on hover nametag.
     this.level = typeof data.level === 'number' ? data.level : 0;
+    // Pixel-cake easter egg — ms epoch until which they visibly hold a cake.
+    this.holdingCakeUntil = typeof data.holdingCakeUntil === 'number' ? data.holdingCakeUntil : 0;
     // Mario-style death easter egg (set when server relays player:died for this player).
     this.isDead = false;
     this.deathStartTime = 0;

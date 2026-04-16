@@ -290,6 +290,7 @@ io.on('connection', (socket) => {
       status: null, // { text, link }
       joinedAt: Date.now(),
       level: computeTotalLevel(initialStats), // 0-50; shown on hover nametag
+      holdingCakeUntil: 0, // ms epoch — player-holding-a-cake easter egg after finishing a task
     };
 
     players.set(socket.id, player);
@@ -548,7 +549,19 @@ io.on('connection', (socket) => {
     socket.emit('board:sync', { board: planningBoard });
   });
 
-  socket.on('board:add', ({ assignee, task, duration, column }) => {
+  // Validates an ISO YYYY-MM-DD date string; returns '' (unset) for anything else.
+  const sanitizeDate = (v) => {
+    if (v === null || v === '') return '';
+    if (typeof v !== 'string') return '';
+    return /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : '';
+  };
+  const sanitizeProgress = (v) => {
+    const n = Number(v);
+    if (!Number.isFinite(n)) return 0;
+    return Math.max(0, Math.min(100, Math.round(n)));
+  };
+
+  socket.on('board:add', ({ assignee, task, duration, column, startDate, endDate, description, link, progress }) => {
     const player = players.get(socket.id);
     if (!player) return;
     const validColumns = ['now', 'next', 'done'];
@@ -557,23 +570,33 @@ io.on('connection', (socket) => {
       assignee: (assignee || '').slice(0, 30),
       task: (task || '').slice(0, 200),
       duration: (duration || '').slice(0, 30),
-      column: validColumns.includes(column) ? column : 'now',
+      column: validColumns.includes(column) ? column : 'next',
       color: player.appearance.shirtColor || '#e94560',
+      startDate: sanitizeDate(startDate),
+      endDate: sanitizeDate(endDate),
+      description: (description || '').slice(0, 2000),
+      link: (link || '').slice(0, 500),
+      progress: sanitizeProgress(progress),
     };
     planningBoard.push(card);
     io.emit('board:sync', { board: planningBoard });
     scheduleBoardSave();
   });
 
-  socket.on('board:update', ({ id, assignee, task, duration, column }) => {
+  socket.on('board:update', ({ id, assignee, task, duration, column, startDate, endDate, description, link, progress }) => {
     const card = planningBoard.find(c => c.id === id);
     if (!card) return;
     const validColumns = ['now', 'next', 'done'];
-    if (assignee !== undefined) card.assignee = (assignee || '').slice(0, 30);
-    if (task !== undefined) card.task = (task || '').slice(0, 200);
-    if (duration !== undefined) card.duration = (duration || '').slice(0, 30);
+    if (assignee !== undefined)   card.assignee = (assignee || '').slice(0, 30);
+    if (task !== undefined)        card.task = (task || '').slice(0, 200);
+    if (duration !== undefined)    card.duration = (duration || '').slice(0, 30);
     if (column !== undefined && validColumns.includes(column)) card.column = column;
-    // If being moved out of 'done', clear completion metadata
+    if (startDate !== undefined)   card.startDate = sanitizeDate(startDate);
+    if (endDate !== undefined)     card.endDate = sanitizeDate(endDate);
+    if (description !== undefined) card.description = (description || '').slice(0, 2000);
+    if (link !== undefined)        card.link = (link || '').slice(0, 500);
+    if (progress !== undefined)    card.progress = sanitizeProgress(progress);
+    // If being moved out of 'done', clear completion metadata and reset progress to 99 (so user can finish it fresh)
     if (column !== undefined && column !== 'done') {
       delete card.completedBy;
       delete card.completedAt;
@@ -593,12 +616,16 @@ io.on('connection', (socket) => {
     card.completedBy = player.username;
     card.completedAt = Date.now();
     const color = player.appearance.shirtColor || '#e94560';
+    // Pixel-cake easter egg — completer holds a cake for 5 minutes.
+    const cakeUntil = Date.now() + 5 * 60 * 1000;
+    player.holdingCakeUntil = cakeUntil;
     io.emit('board:sync', { board: planningBoard });
     io.emit('celebrate:task-done', {
       completer: player.username,
       task: card.task,
       color,
     });
+    io.emit('player:hold-cake', { id: socket.id, username: player.username, untilTs: cakeUntil });
     // Award XP to the completer — level-ups (if any) are auto-broadcast by bumpStat
     const result = bumpStat(player.username, { tasksCompleted: 1 }, { color });
     if (result) {

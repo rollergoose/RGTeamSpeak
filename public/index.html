@@ -77,6 +77,8 @@
     <div id="meeting-controls">
       <button id="btn-mute" class="ctrl-btn active">🎙️ Mute</button>
       <button id="btn-screenshare" class="ctrl-btn">🖥️ Share Screen</button>
+      <button id="btn-meeting-board" class="ctrl-btn" title="Planning Board">📋 Planning</button>
+      <button id="btn-meeting-youtube" class="ctrl-btn" title="YouTube">📺 YouTube</button>
       <select id="bw-select" style="display:none"></select>
     </div>
 
@@ -100,6 +102,7 @@
         <span>📺 TV Area</span>
         <div>
           <button id="youtube-clear">Turn Off</button>
+          <button id="youtube-hide" title="Hide (video keeps playing for everyone)">✕</button>
         </div>
       </div>
       <iframe id="youtube-iframe" allow="autoplay; encrypted-media" allowfullscreen style="display:none"></iframe>
@@ -303,9 +306,9 @@
     <!-- Planning Board overlay -->
     <div id="board-overlay">
       <div class="board-header">
-        <span>📋 Planning Board</span>
+        <span id="board-header-title">📋 Planning Board</span>
         <div>
-          <button id="board-add-btn" class="ctrl-btn">+ Add Card</button>
+          <button id="board-add-btn" class="ctrl-btn" style="display:none">+ Add Card</button>
           <button id="board-close" class="ctrl-btn">✕</button>
         </div>
       </div>
@@ -315,18 +318,30 @@
           <span class="board-xp-you">You: Lv <b id="board-xp-you-lvl">0</b>/10 Achiever (<span id="board-xp-you-count">0</span> done)</span>
           <div class="board-xp-bar"><div id="board-xp-bar-fill" class="board-xp-bar-fill"></div></div>
         </div>
-        <div class="board-columns">
-          <div class="board-column" data-col="now">
-            <div class="board-column-title">🔵 Doing Now</div>
-            <div id="board-now" class="board-cards" data-col="now"></div>
+        <!-- Landing view: pick whose planning to see -->
+        <div id="board-landing" class="board-landing">
+          <div class="board-landing-title">Pick whose planning to view</div>
+          <div id="board-landing-grid" class="board-landing-grid"></div>
+        </div>
+        <!-- Kanban view: 3-column board for the selected assignee -->
+        <div id="board-kanban" class="board-kanban" style="display:none">
+          <div class="board-kanban-header">
+            <button id="board-back-btn" class="ctrl-btn">← All planning boards</button>
+            <span id="board-kanban-title" class="board-kanban-title"></span>
           </div>
-          <div class="board-column" data-col="next">
-            <div class="board-column-title">⏭️ Up Next</div>
-            <div id="board-next" class="board-cards" data-col="next"></div>
-          </div>
-          <div class="board-column" data-col="done">
-            <div class="board-column-title">✅ Done</div>
-            <div id="board-done" class="board-cards" data-col="done"></div>
+          <div class="board-columns">
+            <div class="board-column" data-col="now">
+              <div class="board-column-title">🔵 Doing Now</div>
+              <div id="board-now" class="board-cards" data-col="now"></div>
+            </div>
+            <div class="board-column" data-col="next">
+              <div class="board-column-title">⏭️ Up Next</div>
+              <div id="board-next" class="board-cards" data-col="next"></div>
+            </div>
+            <div class="board-column" data-col="done">
+              <div class="board-column-title">✅ Done</div>
+              <div id="board-done" class="board-cards" data-col="done"></div>
+            </div>
           </div>
         </div>
       </div>

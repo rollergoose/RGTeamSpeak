@@ -25,6 +25,8 @@ export class Player {
     // Mario-style death easter egg when hit by a car.
     this.isDead = false;
     this.deathStartTime = 0;
+    // Pixel-cake easter egg — ms epoch until which the character visibly holds a cake.
+    this.holdingCakeUntil = 0;
   }
 
   triggerDeath() {

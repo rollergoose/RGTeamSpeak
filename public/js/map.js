@@ -1,5 +1,21 @@
 import { T, TILE_SIZE, MAP_COLS, MAP_ROWS, TILE_COLORS, SOLID_TILES, ZONE_TYPES } from './constants.js';
 
+// Tiles that are visual overlays rather than full-tile terrain — they should render on top
+// of their natural ground (grass for park/yard, sidewalk for street furniture) instead of
+// painting the whole 32×32 cell with the item's fill color. Without this, a bus sign looks
+// like a yellow square, an agility hoop is a red square, a grill is a black square, etc.
+const OVERLAY_BASE = {
+  [T.BUS_SIGN]:       T.SIDEWALK,
+  [T.STREETLIGHT]:    T.SIDEWALK,
+  [T.AGILITY_HOOP]:   T.GRASS,
+  [T.AGILITY_TUNNEL]: T.GRASS,
+  [T.AGILITY_JUMP]:   T.GRASS,
+  [T.DOG_BONE]:       T.GRASS,
+  [T.FRISBEE]:        T.GRASS,
+  [T.BBQ_GRILL]:      T.GRASS,
+  [T.PARK_BENCH]:     T.GRASS,
+};
+
 /*
   OFFICE LAYOUT v6 — 50 cols x 35 rows
   Same office on top, 3 wall-to-wall venues across the street, small park east.
@@ -184,6 +200,8 @@ function createMap() {
   // Picnic blankets
   fill(37, 11, 2, 2, T.RUG); fill(42, 13, 2, 2, T.RUG);
   m[11][40] = T.PLANT; m[14][45] = T.PLANT; m[12][47] = T.PLANT;
+  // BBQ grill in the yard — between the two picnic blankets, on the grass.
+  m[13][40] = T.BBQ_GRILL;
 
   // ========== BOTTOM WALL with windows ==========
   hWall(0, 16, 33);
@@ -288,9 +306,8 @@ function createMap() {
   m[33 - 1][47] = T.DOG_BONE; // m[32][47]
   // A couple of trees for shade
   m[26][39] = T.PLANT; m[33 - 1][40] = T.PLANT; // m[32][40]
-  // Park bench for the watchers + a BBQ grill
+  // Park bench for the watchers (grill moved to the yard east of the office)
   m[28][47] = T.PARK_BENCH;
-  m[31][47] = T.BBQ_GRILL;
 
   return m;
 }
@@ -321,8 +338,28 @@ export function drawMap(ctx, camera) {
       const colors = TILE_COLORS[tile];
       if (!colors) continue;
 
-      ctx.fillStyle = colors.fill;
-      ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+      // If this tile is an overlay (bus sign, streetlight, agility gear, grill, bench, bone…),
+      // paint the natural ground first so the item visibly sits on grass/sidewalk.
+      const baseTile = OVERLAY_BASE[tile];
+      if (baseTile) {
+        const base = TILE_COLORS[baseTile];
+        ctx.fillStyle = base.fill;
+        ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+        // Replicate the base tile's detail (grass tufts / sidewalk grid) so it blends in.
+        if (baseTile === T.GRASS) {
+          ctx.fillStyle = base.dark;
+          const seed = (c * 7 + r * 13) % 5;
+          if (seed < 3) ctx.fillRect(x + 8 + seed * 4, y + 10, 2, 6);
+          if (seed < 2) ctx.fillRect(x + 20, y + 16, 2, 5);
+        } else if (baseTile === T.SIDEWALK) {
+          ctx.strokeStyle = base.grid;
+          ctx.lineWidth = 0.5;
+          ctx.strokeRect(x, y, TILE_SIZE, TILE_SIZE);
+        }
+      } else {
+        ctx.fillStyle = colors.fill;
+        ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+      }
 
       switch (tile) {
         case T.FLOOR:

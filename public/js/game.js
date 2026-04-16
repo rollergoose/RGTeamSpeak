@@ -271,6 +271,7 @@ function gameLoop(timestamp) {
     zone: getCurrentZone()?.id || null,
     isDead: localPlayer.isDead,
     deathStartTime: localPlayer.deathStartTime,
+    holdingCakeUntil: localPlayer.holdingCakeUntil || 0,
   });
 
   for (const rp of remotePlayers.values()) {
@@ -287,6 +288,7 @@ function gameLoop(timestamp) {
       zone: rp.zone,
       isDead: rp.isDead,
       deathStartTime: rp.deathStartTime,
+      holdingCakeUntil: rp.holdingCakeUntil || 0,
     });
   }
 
@@ -306,6 +308,10 @@ function gameLoop(timestamp) {
     }
     // Sitting animations based on zone (but not while being hit by a car)
     if (!c.isMoving && !c.isDead) drawSittingAnimation(ctx, sx, sy, c.zone);
+    // Pixel cake easter egg — hand position relative to character
+    if (c.holdingCakeUntil && c.holdingCakeUntil > Date.now() && !c.isDead) {
+      drawPixelCake(ctx, sx, sy, c.direction);
+    }
   }
 
   // Hover nametag — pick the topmost character under the mouse cursor and draw their name.
@@ -400,6 +406,62 @@ function drawStatusBubble(ctx, sx, sy, workStatus) {
   ctx.fillText(displayText, bx + 6, by + 15);
   if (hasLink) { ctx.fillStyle = '#3498db'; ctx.fillText('\u{1F517}', bx + bubbleW - 16, by + 15); }
   ctx.textAlign = 'center';
+}
+
+// Pixel cake held by a character who just finished a task. (sx, sy) is the character's
+// bottom-center anchor; the cake is offset to "hand height". Directional offset so it
+// appears in front of the character based on facing.
+function drawPixelCake(ctx, sx, sy, direction) {
+  // Hand-height offset: roughly mid-body. Place on the right by default, flip for 'left'.
+  const handY = Math.round(sy - 14);
+  const dx = direction === 'left' ? -12 : 12;
+  const cx = Math.round(sx + dx);
+  const cy = handY;
+
+  // Gentle bob so the cake isn't perfectly static (1-pixel sine bob).
+  const bob = Math.round(Math.sin(performance.now() / 400) * 1);
+
+  // --- Plate ---
+  ctx.fillStyle = '#d0d0d0';
+  ctx.fillRect(cx - 6, cy + 5 + bob, 12, 1);
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(cx - 5, cy + 4 + bob, 10, 1);
+
+  // --- Cake body (chocolate base) ---
+  ctx.fillStyle = '#6b3410';
+  ctx.fillRect(cx - 5, cy + 2 + bob, 10, 3);
+  ctx.fillStyle = '#8b4513';
+  ctx.fillRect(cx - 5, cy + 2 + bob, 10, 1);
+
+  // --- Frosting layer ---
+  ctx.fillStyle = '#fef2e0';
+  ctx.fillRect(cx - 5, cy + bob, 10, 2);
+  // Pink icing drip decorations
+  ctx.fillStyle = '#e91e63';
+  ctx.fillRect(cx - 3, cy + 1 + bob, 1, 1);
+  ctx.fillRect(cx + 2, cy + 1 + bob, 1, 1);
+  ctx.fillStyle = '#ff1493';
+  ctx.fillRect(cx - 1, cy + 1 + bob, 1, 1);
+
+  // --- Candle ---
+  ctx.fillStyle = '#f1c40f';
+  ctx.fillRect(cx, cy - 3 + bob, 1, 3);
+  ctx.fillStyle = '#3498db';
+  ctx.fillRect(cx - 1, cy - 3 + bob, 1, 3);
+
+  // --- Flame (flicker slightly) ---
+  const flickerT = performance.now() / 80;
+  const flameShape = Math.sin(flickerT) > 0 ? 0 : 1;
+  ctx.fillStyle = '#ff6b35';
+  ctx.fillRect(cx - 1, cy - 5 + bob, 2, 2);
+  ctx.fillStyle = '#ffe66d';
+  ctx.fillRect(cx, cy - 5 + flameShape + bob, 1, 1);
+
+  // --- Subtle glow ---
+  ctx.fillStyle = 'rgba(255, 215, 120, 0.2)';
+  ctx.beginPath();
+  ctx.arc(cx, cy - 3 + bob, 6, 0, Math.PI * 2);
+  ctx.fill();
 }
 
 // Draws a small pill-shaped nametag with a downward pointer above a character.

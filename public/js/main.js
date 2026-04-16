@@ -263,6 +263,16 @@ function setupNetworkHandlers() {
     playMarioDeathSound();
   });
 
+  // Pixel-cake easter egg — server announces who's holding a cake and until when.
+  network.on('player:hold-cake', ({ id, username, untilTs }) => {
+    if (localPlayer && username === localPlayer.username) {
+      localPlayer.holdingCakeUntil = untilTs;
+    } else {
+      const rp = remotePlayers.get(id);
+      if (rp) rp.holdingCakeUntil = untilTs;
+    }
+  });
+
   network.on('voice:muted', ({ playerId, muted }) => {
     const rp = remotePlayers.get(playerId);
     if (rp) rp.muted = muted;
@@ -354,6 +364,10 @@ function setupZoneCallbacks() {
 function setupMeetingControls() {
   const muteBtn = document.getElementById('btn-mute');
   const shareBtn = document.getElementById('btn-screenshare');
+  const boardBtn = document.getElementById('btn-meeting-board');
+  const ytBtn = document.getElementById('btn-meeting-youtube');
+  const ytOverlay = document.getElementById('youtube-overlay');
+  const ytHideBtn = document.getElementById('youtube-hide');
   const bwSelect = document.getElementById('bw-select');
 
   bwSelect.innerHTML = '';
@@ -371,6 +385,45 @@ function setupMeetingControls() {
     else startScreenShare();
   });
   bwSelect.addEventListener('change', () => { setBitrate(parseInt(bwSelect.value)); });
+
+  // Planning board + YouTube access from inside the meeting, so people can show/discuss
+  // planning or a video without leaving the meeting to walk to another zone.
+  const syncBoardBtn = () => {
+    boardBtn.classList.toggle('active', isBoardOpen());
+    boardBtn.textContent = isBoardOpen() ? '📋 Close Planning' : '📋 Planning';
+  };
+  boardBtn.addEventListener('click', () => {
+    if (isBoardOpen()) closeBoard();
+    else openBoard();
+    syncBoardBtn();
+  });
+
+  const syncYtBtn = () => {
+    const visible = ytOverlay.classList.contains('visible');
+    ytBtn.classList.toggle('active', visible);
+    ytBtn.textContent = visible ? '📺 Hide YouTube' : '📺 YouTube';
+  };
+  ytBtn.addEventListener('click', () => {
+    if (ytOverlay.classList.contains('visible')) leaveChillZone();
+    else enterChillZone();
+    syncYtBtn();
+  });
+
+  // Local-only hide of the YouTube overlay — doesn't affect other players or stop the video.
+  ytHideBtn.addEventListener('click', () => {
+    leaveChillZone();
+    syncYtBtn();
+  });
+
+  // Whenever the board or overlay state changes from another path (keyboard, zone change,
+  // X button in the board header), the meeting buttons' labels should catch up.
+  // Poll once per second while the meeting controls are visible — cheap and reliable.
+  const meetingControls = document.getElementById('meeting-controls');
+  setInterval(() => {
+    if (!meetingControls.classList.contains('visible')) return;
+    syncBoardBtn();
+    syncYtBtn();
+  }, 800);
 
   setVoiceStateCallback(({ isInVoice, isMuted }) => {
     muteBtn.textContent = isMuted ? '🔇 Unmute' : '🎙️ Mute';
@@ -1520,10 +1573,12 @@ function setupLevelSystem() {
     }
   });
 
-  // Task-completion broadcast — mini celebration on every screen.
-  network.on('celebrate:task-done', ({ completer, color }) => {
-    spawnConfetti(document.body, 14, color ? [color, '#2ecc71', '#f1c40f'] : null);
-    playDingSound();
+  // Task-completion broadcast — popup + fanfare for everyone; encouragement for the completer.
+  network.on('celebrate:task-done', ({ completer, task, color }) => {
+    spawnConfetti(document.body, 20, color ? [color, '#2ecc71', '#f1c40f', '#e91e63'] : null);
+    playTaskFanfare();
+    const isMe = completer === localPlayer?.username;
+    showTaskCompletePopup({ isMe, completer, task, color });
   });
 
   // Track steps — delta sent to server each tick if player moved.
@@ -1591,7 +1646,7 @@ const CONFETTI_COLORS = ['#f1c40f', '#e74c3c', '#3498db', '#2ecc71', '#9b59b6', 
 
 // Spawn `count` confetti pieces inside `target`. Colors defaults to the rainbow palette.
 // Pieces self-remove via animationend so we don't leak DOM.
-function spawnConfetti(target, count = 30, colors) {
+export function spawnConfetti(target, count = 30, colors) {
   if (!target) return;
   const palette = (Array.isArray(colors) && colors.length) ? colors : CONFETTI_COLORS;
   // For the fullscreen levelup container we clear first; for ad-hoc targets we append.
@@ -1653,6 +1708,37 @@ function playDingSound() {
   } catch (e) { /* audio not available */ }
 }
 
+// Task-completion fanfare — shorter than level-up, more festive than ding. Quick upward
+// trumpet run that lands on a satisfying major chord.
+function playTaskFanfare() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const t = ctx.currentTime;
+    const playNote = (freq, start, dur, vol, type = 'square') => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.type = type;
+      osc.frequency.setValueAtTime(freq, t + start);
+      gain.gain.setValueAtTime(vol, t + start);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + start + dur);
+      osc.start(t + start); osc.stop(t + start + dur);
+    };
+    // Trumpet-like run: C5 → E5 → G5 → C6
+    playNote(523, 0.00, 0.12, 0.14);
+    playNote(659, 0.12, 0.12, 0.14);
+    playNote(784, 0.24, 0.12, 0.14);
+    playNote(1047, 0.36, 0.30, 0.18);
+    // Sustained major chord harmonics (sine layer = strings)
+    playNote(523, 0.36, 0.50, 0.10, 'sine');
+    playNote(659, 0.38, 0.48, 0.08, 'sine');
+    playNote(784, 0.40, 0.46, 0.08, 'sine');
+    // Little sparkle on the payoff
+    playNote(1568, 0.50, 0.20, 0.05, 'sine');
+    playNote(2093, 0.58, 0.18, 0.04, 'sine');
+  } catch (e) { /* audio not available */ }
+}
+
 // Classic Mario-death jingle: a quick dip-down, then descending arpeggio, then a deep
 // stinger — plays locally when a car flattens you.
 function playMarioDeathSound() {
@@ -1707,6 +1793,92 @@ function showAchievementToast(text, color) {
     toast.classList.add('leaving');
     setTimeout(() => toast.remove(), 300);
   }, 3000);
+}
+
+// Words of encouragement shown to the completer when they finish a task.
+const ENCOURAGEMENT_PHRASES = [
+  'Nice work! 🎉',
+  'You crushed it! 💥',
+  'Absolute legend. 🏆',
+  'On fire today! 🔥',
+  'Task demolished. ⚡',
+  'Big-brain energy. 🧠',
+  'Ship it! 🚢',
+  'Another one down! 🎯',
+  'Chef\'s kiss. 👨\u200d🍳',
+  'You ate that. 🍽️',
+];
+
+// Task-complete popup: centered banner with the task name + either an encouragement
+// message (for the completer) or a "Say congrats" button (for everyone else).
+// Auto-dismisses after 5s. Stacks if multiple fire close together.
+function showTaskCompletePopup({ isMe, completer, task, color }) {
+  const host = ensureTaskCompleteHost();
+  const popup = document.createElement('div');
+  popup.className = 'task-complete-popup';
+  popup.style.borderColor = color || '#2ecc71';
+
+  if (isMe) {
+    const phrase = ENCOURAGEMENT_PHRASES[Math.floor(Math.random() * ENCOURAGEMENT_PHRASES.length)];
+    popup.innerHTML = `
+      <div class="tcp-title">${esc(phrase)}</div>
+      <div class="tcp-sub">You finished <b>${esc(task || 'a task')}</b>.</div>
+      <div class="tcp-hint">🎂 Cake unlocked for 5 minutes — enjoy!</div>
+    `;
+  } else {
+    popup.innerHTML = `
+      <div class="tcp-title">🎉 ${esc(completer)} completed a task!</div>
+      <div class="tcp-sub">“${esc(task || '')}”</div>
+      <div class="tcp-actions">
+        <button class="tcp-congrats-btn">💬 Say congrats!</button>
+      </div>
+    `;
+    popup.querySelector('.tcp-congrats-btn').addEventListener('click', () => {
+      const msg = pickCongratsMessage(completer);
+      network.emit('chat:send', { message: msg });
+      // Disable the button so you can't spam it
+      const btn = popup.querySelector('.tcp-congrats-btn');
+      btn.disabled = true;
+      btn.textContent = '💬 Sent!';
+    });
+  }
+
+  host.appendChild(popup);
+  requestAnimationFrame(() => popup.classList.add('visible'));
+  setTimeout(() => {
+    popup.classList.remove('visible');
+    popup.classList.add('leaving');
+    setTimeout(() => popup.remove(), 350);
+  }, 5000);
+}
+
+let taskCompleteHost = null;
+function ensureTaskCompleteHost() {
+  if (taskCompleteHost) return taskCompleteHost;
+  taskCompleteHost = document.createElement('div');
+  taskCompleteHost.id = 'task-complete-stack';
+  document.body.appendChild(taskCompleteHost);
+  return taskCompleteHost;
+}
+
+const CONGRATS_MESSAGES = [
+  'Nice work, {name}! 🎉',
+  'Let\'s go {name}! 👏',
+  'Huge, {name}! 🚀',
+  '{name} 🫡',
+  'Ggs {name} 🏆',
+  'Absolute unit {name} 💪',
+];
+function pickCongratsMessage(completer) {
+  const tpl = CONGRATS_MESSAGES[Math.floor(Math.random() * CONGRATS_MESSAGES.length)];
+  return tpl.replace('{name}', completer);
+}
+
+// Tiny local HTML escaper — avoid importing from board.js to dodge circular imports.
+function esc(s) {
+  const d = document.createElement('div');
+  d.textContent = s == null ? '' : String(s);
+  return d.innerHTML;
 }
 
 function playLevelUpSound() {
