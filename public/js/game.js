@@ -158,6 +158,7 @@ function gameLoop(timestamp) {
   drawZoneLabels(ctx, camera);
   drawPlacedFurniture(ctx, camera);
   drawPets(ctx, camera);
+  drawNoticeBadges(ctx, camera);
 
   const allChars = [];
 
@@ -342,6 +343,45 @@ function drawLockedDoors(ctx, camera) {
         ctx.fill();
       }
     }
+  }
+}
+
+// ========== NOTICE BOARD BADGES ==========
+// Board tile positions match map.js: Henrik (6,10), Alice (13,10), Leo (20,10)
+const NOTICE_BOARDS = {
+  henrik: { col: 6, row: 10 },
+  alice: { col: 13, row: 10 },
+  leo: { col: 20, row: 10 },
+};
+
+function drawNoticeBadges(ctx, camera) {
+  const counts = window._officeNoticeCounts || {};
+  for (const [officeId, pos] of Object.entries(NOTICE_BOARDS)) {
+    const count = counts[officeId] || 0;
+    if (count <= 0) continue;
+
+    // Top-right corner of the board tile
+    const bx = pos.col * TILE_SIZE - camera.x + TILE_SIZE - 4;
+    const by = pos.row * TILE_SIZE - camera.y + 4;
+
+    if (bx < -20 || bx > camera.w + 20 || by < -20 || by > camera.h + 20) continue;
+
+    const label = count > 99 ? '99+' : String(count);
+    const r = 9;
+
+    // Red circle with white border (for contrast)
+    ctx.fillStyle = '#fff';
+    ctx.beginPath(); ctx.arc(bx, by, r + 1.5, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#e74c3c';
+    ctx.beginPath(); ctx.arc(bx, by, r, 0, Math.PI * 2); ctx.fill();
+
+    // Number
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 11px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(label, bx, by + 0.5);
+    ctx.textBaseline = 'alphabetic';
   }
 }
 

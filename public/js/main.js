@@ -833,9 +833,17 @@ function setupNoticeBoard() {
   });
 
   network.on('notice:sync', ({ officeId, notes }) => {
+    // Track counts for all offices so we can draw badges on the map
+    window._officeNoticeCounts = window._officeNoticeCounts || {};
+    window._officeNoticeCounts[officeId] = notes.length;
     if (officeId !== currentNoticeOffice) return;
     renderNotes(notes);
   });
+
+  // Request counts for all offices on startup (server broadcasts to everyone)
+  for (const officeId of ['henrik', 'alice', 'leo']) {
+    network.emit('notice:get', { officeId });
+  }
 
   function renderNotes(notes) {
     board.innerHTML = '';
