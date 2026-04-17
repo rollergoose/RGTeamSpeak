@@ -54,6 +54,10 @@ export const T = {
   PARK_BENCH: 41,
   BBQ_GRILL: 42,
   STREETLIGHT: 43,
+  // Gaming room (top-right)
+  GAMING_PC: 44,
+  GAMING_CONSOLE: 45,
+  GAMING_FLOOR: 46,
 };
 
 // === Tile Colors ===
@@ -106,10 +110,14 @@ export const TILE_COLORS = {
   [T.PARK_BENCH]:    { fill: '#5a3a1a', plank: '#7a5a2a', leg: '#1a1a1a' },
   [T.BBQ_GRILL]:     { fill: '#1a1a1a', grate: '#666', flame: '#ff7a0a', flameHot: '#ffd24a' },
   [T.STREETLIGHT]:   { fill: '#444', post: '#2a2a2a', glow: '#ffe28a' },
+  // Gaming room
+  [T.GAMING_PC]:     { fill: '#141218', frame: '#0a0a0e', desk: '#2a2432', keyboard: '#1a1a22' },
+  [T.GAMING_CONSOLE]:{ fill: '#0a0a0a', stand: '#2a2530', accent: '#6a3fb5' },
+  [T.GAMING_FLOOR]:  { fill: '#2a1e3a', grid: '#3a2a4a' }, // dark purple carpet, gamer vibe
 };
 
 // === Which tiles block movement ===
-export const SOLID_TILES = new Set([T.WALL, T.DESK, T.TABLE, T.TV, T.COMPUTER, T.MEETING_TABLE, T.COUNTER, T.TOILET_TILE, T.PLANT, T.FENCE, T.WINDOW, T.BUS_SIGN, T.TREADMILL, T.WEIGHT_BENCH, T.DUMBBELL, T.SHELF, T.CASHIER, T.CINEMA_SEAT, T.CINEMA_SCREEN, T.DRAPE, T.AGILITY_TUNNEL, T.PARK_FENCE, T.PARK_BENCH, T.BBQ_GRILL, T.STREETLIGHT, T.DONUT_BOX_TILE, T.PIZZA_BOX_TILE]);
+export const SOLID_TILES = new Set([T.WALL, T.DESK, T.TABLE, T.TV, T.COMPUTER, T.MEETING_TABLE, T.COUNTER, T.TOILET_TILE, T.PLANT, T.FENCE, T.WINDOW, T.BUS_SIGN, T.TREADMILL, T.WEIGHT_BENCH, T.DUMBBELL, T.SHELF, T.CASHIER, T.CINEMA_SEAT, T.CINEMA_SCREEN, T.DRAPE, T.AGILITY_TUNNEL, T.PARK_FENCE, T.PARK_BENCH, T.BBQ_GRILL, T.STREETLIGHT, T.DONUT_BOX_TILE, T.PIZZA_BOX_TILE, T.GAMING_PC, T.GAMING_CONSOLE]);
 
 // === Player ===
 export const MOVE_SPEED = 2.5;
@@ -210,6 +218,7 @@ export const ZONE_TYPES = {
   GROCERY: 'grocery',
   CINEMA: 'cinema',
   DOGPARK: 'dogpark',
+  GAMING: 'gaming',
 };
 
 // Spawn in the hallway (row 8, center)

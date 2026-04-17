@@ -54,6 +54,7 @@ export const ZONES = [
   { id: 'toilet',    name: 'Restroom',       type: ZONE_TYPES.TOILET,   tx: 19, ty: 1,  tw: 7,  th: 5 },
   { id: 'kitchen',   name: 'Kitchen',        type: ZONE_TYPES.KITCHEN,  tx: 27, ty: 1,  tw: 8,  th: 5 },
   { id: 'archives',  name: 'Archives',       type: ZONE_TYPES.ARCHIVES, tx: 36, ty: 1,  tw: 6,  th: 5 },
+  { id: 'gaming',    name: '🎮 Gaming Room', type: ZONE_TYPES.GAMING,   tx: 43, ty: 1,  tw: 6,  th: 5 },
 
   // HALLWAY
   { id: 'hallway',   name: 'Hallway',        type: ZONE_TYPES.HALLWAY,  tx: 1,  ty: 7,  tw: 48, th: 2 },
@@ -122,6 +123,7 @@ function createMap() {
   m[6][20] = T.DOOR; m[6][24] = T.DOOR;   // Restroom (one door per side)
   m[6][30] = T.DOOR; m[6][31] = T.DOOR;   // Kitchen
   m[6][38] = T.DOOR; m[6][39] = T.DOOR;   // Archives
+  m[6][45] = T.DOOR; m[6][46] = T.DOOR;   // Gaming Room
 
   // Video Hangout
   m[2][1] = T.TV; m[3][1] = T.TV;
@@ -157,6 +159,23 @@ function createMap() {
   m[1][36] = T.DESK; m[1][37] = T.DESK; m[1][38] = T.DESK; m[1][39] = T.DESK;
   m[2][40] = T.DESK; m[3][40] = T.DESK;
   m[3][37] = T.TABLE; m[4][37] = T.CHAIR; m[2][36] = T.PLANT;
+
+  // ========== GAMING ROOM (cols 43-48, rows 1-5) ==========
+  // Dark-purple carpet floor for the whole room.
+  fill(43, 1, 6, 5, T.GAMING_FLOOR);
+  // 4 gaming PCs across the back wall, each with a chair below it
+  m[1][43] = T.GAMING_PC; m[1][44] = T.GAMING_PC; m[1][45] = T.GAMING_PC; m[1][46] = T.GAMING_PC;
+  m[2][43] = T.CHAIR;    m[2][44] = T.CHAIR;    m[2][45] = T.CHAIR;    m[2][46] = T.CHAIR;
+  // Plant in the far corner
+  m[1][48] = T.PLANT;
+  // Console gaming area — TV + console stand facing a couch across a rug
+  m[4][43] = T.TV;
+  m[4][44] = T.GAMING_CONSOLE;
+  // Rug between the TV and the couch
+  m[5][43] = T.RUG; m[5][44] = T.RUG;
+  // Couch facing the TV
+  m[4][47] = T.COUCH; m[4][48] = T.COUCH;
+  m[5][47] = T.COUCH; m[5][48] = T.COUCH;
 
   // ========== HALLWAY (rows 7-8) ==========
   // Planning board on wall
@@ -400,20 +419,58 @@ export function drawMap(ctx, camera) {
           ctx.fillRect(x + 2, y + 2, 4, TILE_SIZE - 4);
           ctx.fillRect(x + TILE_SIZE - 6, y + 2, 4, TILE_SIZE - 4);
           break;
-        case T.TV:
-          ctx.fillStyle = colors.screen;
-          ctx.fillRect(x + 3, y + 3, TILE_SIZE - 6, TILE_SIZE - 6);
+        case T.TV: {
+          // Bezel
+          ctx.fillStyle = colors.fill;
+          ctx.fillRect(x + 2, y + 2, TILE_SIZE - 4, TILE_SIZE - 4);
+          // Animated "live picture" — colorful horizontal bands sliding, with
+          // a moving bright highlight and a scanline overlay for that CRT feel.
+          const tvT = Date.now() * 0.0025 + (c * 1.3 + r * 0.7);
+          const tvX = x + 3, tvY = y + 3, tvW = TILE_SIZE - 6, tvH = TILE_SIZE - 6;
+          const bandH = tvH / 4;
+          for (let i = 0; i < 4; i++) {
+            const hue = (tvT * 40 + i * 70) % 360;
+            ctx.fillStyle = `hsl(${hue}, 60%, 45%)`;
+            ctx.fillRect(tvX, tvY + i * bandH, tvW, Math.ceil(bandH));
+          }
+          // Moving bright vertical highlight (simulated "motion")
+          const hlX = tvX + ((tvT * 8) % (tvW + 6)) - 3;
+          ctx.fillStyle = 'rgba(255,255,255,0.25)';
+          ctx.fillRect(hlX, tvY, 2, tvH);
+          // Scanlines
+          ctx.fillStyle = 'rgba(0,0,0,0.18)';
+          for (let sy2 = 0; sy2 < tvH; sy2 += 2) ctx.fillRect(tvX, tvY + sy2, tvW, 1);
+          // Standby LED in the corner
           ctx.fillStyle = '#ff3333';
           ctx.fillRect(x + TILE_SIZE - 8, y + TILE_SIZE - 8, 3, 3);
           break;
-        case T.COMPUTER:
-          ctx.fillStyle = colors.screen;
+        }
+        case T.COMPUTER: {
+          // Monitor bezel
+          ctx.fillStyle = '#2a2a2a';
           ctx.fillRect(x + 6, y + 4, TILE_SIZE - 12, TILE_SIZE - 12);
-          ctx.fillStyle = '#4488ff';
-          ctx.fillRect(x + 8, y + 6, TILE_SIZE - 16, TILE_SIZE - 16);
+          // Animated screen content — subtle hue pulse + blinking cursor
+          const compT = Date.now() * 0.002 + (c * 0.5 + r * 0.9);
+          const scX = x + 8, scY = y + 6, scW = TILE_SIZE - 16, scH = TILE_SIZE - 16;
+          const hue = (Math.sin(compT) * 30 + 210) | 0; // blues with slight variation
+          ctx.fillStyle = `hsl(${hue}, 70%, 45%)`;
+          ctx.fillRect(scX, scY, scW, scH);
+          // "Code lines"
+          ctx.fillStyle = 'rgba(255,255,255,0.55)';
+          ctx.fillRect(scX + 1, scY + 2, 5, 1);
+          ctx.fillRect(scX + 1, scY + 5, 9, 1);
+          ctx.fillRect(scX + 3, scY + 8, 6, 1);
+          ctx.fillRect(scX + 1, scY + 11, 4, 1);
+          // Blinking cursor
+          if (Math.floor(Date.now() / 500) % 2 === 0) {
+            ctx.fillStyle = '#fff';
+            ctx.fillRect(scX + 8, scY + 11, 2, 2);
+          }
+          // Stand
           ctx.fillStyle = '#444';
           ctx.fillRect(x + 10, y + TILE_SIZE - 10, TILE_SIZE - 20, 6);
           break;
+        }
         case T.MEETING_TABLE:
           ctx.fillStyle = colors.surface;
           ctx.fillRect(x + 1, y + 1, TILE_SIZE - 2, TILE_SIZE - 2);
@@ -830,6 +887,103 @@ export function drawMap(ctx, camera) {
           grad.addColorStop(1, 'rgba(255,225,140,0)');
           ctx.fillStyle = grad;
           ctx.fillRect(x + 10, y, TILE_SIZE, TILE_SIZE);
+          break;
+        }
+        case T.GAMING_FLOOR: {
+          // Dark purple carpet — subtle grid hint
+          ctx.strokeStyle = colors.grid;
+          ctx.lineWidth = 0.5;
+          ctx.strokeRect(x, y, TILE_SIZE, TILE_SIZE);
+          break;
+        }
+        case T.GAMING_PC: {
+          // Desk surface
+          ctx.fillStyle = colors.desk;
+          ctx.fillRect(x + 2, y + 22, TILE_SIZE - 4, 8);
+          // Tower (stands beside the monitor)
+          ctx.fillStyle = colors.frame;
+          ctx.fillRect(x + 2, y + 8, 4, 18);
+          // Tower vent LED
+          const towerLedT = Date.now() * 0.004 + (c * 2 + r * 3);
+          const towerHue = (towerLedT * 30) % 360;
+          ctx.fillStyle = `hsl(${towerHue}, 95%, 60%)`;
+          ctx.fillRect(x + 3, y + 10, 2, 8);
+          // Monitor frame
+          ctx.fillStyle = colors.frame;
+          ctx.fillRect(x + 7, y + 3, TILE_SIZE - 12, 18);
+          // Animated screen — each PC has a different seed so the 4 side-by-side look alive together
+          const screenX = x + 9, screenY = y + 5, sw = TILE_SIZE - 16, sh = 14;
+          const t = Date.now() * 0.003 + (c * 1.7 + r * 2.3);
+          // Base hue-shifting gradient
+          const grad = ctx.createLinearGradient(screenX, screenY, screenX, screenY + sh);
+          const hue1 = (Math.sin(t) * 60 + 200) | 0;
+          const hue2 = (Math.cos(t * 0.7) * 60 + 300) | 0;
+          grad.addColorStop(0, `hsl(${hue1}, 85%, 55%)`);
+          grad.addColorStop(1, `hsl(${hue2}, 85%, 30%)`);
+          ctx.fillStyle = grad;
+          ctx.fillRect(screenX, screenY, sw, sh);
+          // Bouncing sprite (pretend-player) + moving enemy
+          const spriteX = screenX + Math.round(((Math.sin(t * 1.3) + 1) / 2) * (sw - 3));
+          const spriteY = screenY + sh - 3;
+          ctx.fillStyle = '#fff';
+          ctx.fillRect(spriteX, spriteY, 3, 2);
+          ctx.fillStyle = '#ffeb3b';
+          ctx.fillRect(spriteX, spriteY - 1, 3, 1);
+          const enemyX = screenX + Math.round(((Math.cos(t * 0.9) + 1) / 2) * (sw - 3));
+          ctx.fillStyle = '#e74c3c';
+          ctx.fillRect(enemyX, screenY + 2, 3, 2);
+          // Scanlines
+          ctx.fillStyle = 'rgba(0,0,0,0.22)';
+          for (let sy2 = 0; sy2 < sh; sy2 += 2) ctx.fillRect(screenX, screenY + sy2, sw, 1);
+          // Small HUD corner indicator
+          ctx.fillStyle = 'rgba(0,255,200,0.9)';
+          ctx.fillRect(screenX + 1, screenY + 1, 2, 1);
+          // Keyboard with RGB key LEDs
+          ctx.fillStyle = colors.keyboard;
+          ctx.fillRect(x + 6, y + 26, TILE_SIZE - 12, 4);
+          for (let k = 0; k < 8; k++) {
+            const kh = (t * 60 + k * 45) % 360;
+            ctx.fillStyle = `hsl(${kh}, 95%, 60%)`;
+            ctx.fillRect(x + 7 + k * 2.2, y + 27, 1.6, 2);
+          }
+          // Glow bleeding out the front of the monitor onto the desk
+          const glow = ctx.createRadialGradient(x + TILE_SIZE / 2, y + 14, 2, x + TILE_SIZE / 2, y + 14, 22);
+          glow.addColorStop(0, `hsla(${hue1}, 90%, 60%, 0.35)`);
+          glow.addColorStop(1, 'hsla(0,0%,0%,0)');
+          ctx.fillStyle = glow;
+          ctx.fillRect(x - 4, y + 8, TILE_SIZE + 8, 24);
+          break;
+        }
+        case T.GAMING_CONSOLE: {
+          // Media stand
+          ctx.fillStyle = colors.stand;
+          ctx.fillRect(x + 2, y + 10, TILE_SIZE - 4, 18);
+          ctx.fillStyle = '#1a1624';
+          ctx.fillRect(x + 2, y + 26, TILE_SIZE - 4, 2);
+          // Console box — slim black slab
+          ctx.fillStyle = colors.fill;
+          ctx.fillRect(x + 4, y + 12, TILE_SIZE - 8, 6);
+          // Pulsing LED strip along the console
+          const pulse = (Math.sin(Date.now() * 0.005) + 1) / 2;
+          ctx.fillStyle = colors.accent;
+          ctx.globalAlpha = 0.6 + pulse * 0.4;
+          ctx.fillRect(x + 4, y + 17, TILE_SIZE - 8, 1);
+          ctx.globalAlpha = 1;
+          // Controller on top — dark body with a little light bar
+          ctx.fillStyle = '#161616';
+          ctx.fillRect(x + 10, y + 6, 12, 4);
+          ctx.fillStyle = colors.accent;
+          ctx.fillRect(x + 13, y + 6, 6, 1);
+          // D-pad + face buttons
+          ctx.fillStyle = '#666';
+          ctx.fillRect(x + 11, y + 8, 2, 1);
+          ctx.fillStyle = '#e74c3c';
+          ctx.fillRect(x + 18, y + 8, 1, 1);
+          ctx.fillStyle = '#3498db';
+          ctx.fillRect(x + 20, y + 8, 1, 1);
+          // Small reflection on the stand
+          ctx.fillStyle = 'rgba(255,255,255,0.05)';
+          ctx.fillRect(x + 4, y + 11, TILE_SIZE - 8, 1);
           break;
         }
         case T.PARK_FENCE: {
