@@ -1,6 +1,6 @@
 import { SKIN_TONES, HAIR_COLORS, SHIRT_COLORS, PANTS_COLORS, HAIR_STYLES, SPAWN_X, SPAWN_Y, ZONE_TYPES, BANDWIDTH_OPTIONS, DEFAULT_BANDWIDTH, HATS, OUTFITS, FACES, LEVEL_CATEGORIES } from './constants.js';
 import { Player } from './player.js';
-import { initGame, setCallbacks, setInputFocused, getCamera, triggerRemoteDeath } from './game.js';
+import { initGame, setCallbacks, setInputFocused, getCamera, triggerRemoteDeath, getFurnitureLayer } from './game.js';
 import { setLockedDoorChecker, setFurnitureCollider } from './player.js';
 import { initChat } from './chat.js';
 import { initVoice, joinVoice, leaveVoice, toggleMute, setVoiceStateCallback, getIsMuted } from './voice.js';
@@ -144,25 +144,88 @@ function buildHairStyles() {
 
 function updatePreview() {
   const canvas = document.getElementById('char-preview');
-  const ctx = canvas.getContext('2d');
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  drawCharacter(ctx, canvas.width / 2, canvas.height - 10, appearance, 'down', false, 0, '', {});
+  if (canvas) {
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    drawCharacter(ctx, canvas.width / 2, canvas.height - 10, appearance, 'down', false, 0, '', {});
+  }
   savePreferences();
+  // Reflect the change live on the local player's in-game character + broadcast to others.
+  if (localPlayer) {
+    localPlayer.appearance = { ...appearance };
+    try { network.emit('appearance:update', { appearance: localPlayer.appearance }); } catch {}
+  }
+}
+
+// === Wardrobe overlay ===
+let _wardrobeBuilt = false;
+function openWardrobe(opts = {}) {
+  const overlay = document.getElementById('wardrobe-overlay');
+  if (!overlay) return;
+  // Build the customization UI lazily the first time the wardrobe opens — needed here because
+  // the old `buildCustomization()` call at page-load was removed when login was simplified.
+  if (!_wardrobeBuilt) {
+    buildCustomization();
+    _wardrobeBuilt = true;
+  } else {
+    // Refresh the level-locked cosmetic rows since the player may have leveled up since
+    // the wardrobe was last opened.
+    buildCosmeticOptions('hat-options', HATS, 'hat');
+    buildCosmeticOptions('face-options', FACES, 'face');
+    buildCosmeticOptions('outfit-options', OUTFITS, 'outfit');
+    updatePreview();
+  }
+  const closeBtn = document.getElementById('wardrobe-close');
+  const finishBtn = document.getElementById('wardrobe-finish-first');
+  // First-launch mode: hide the ✕ (can't skip picking a look on your first visit) and
+  // show the big green "Enter the office" finish button, plus a dim backdrop over the game.
+  if (opts.firstTime) {
+    if (closeBtn) closeBtn.style.display = 'none';
+    if (finishBtn) finishBtn.style.display = 'block';
+    document.body.classList.add('wardrobe-first-time');
+  } else {
+    if (closeBtn) closeBtn.style.display = '';
+    if (finishBtn) finishBtn.style.display = 'none';
+    document.body.classList.remove('wardrobe-first-time');
+  }
+  overlay.classList.add('visible');
+}
+function closeWardrobe() {
+  const overlay = document.getElementById('wardrobe-overlay');
+  if (overlay) overlay.classList.remove('visible');
+  document.body.classList.remove('wardrobe-first-time');
+  // Restore the ✕ / hide the finish button so subsequent opens behave normally.
+  const closeBtn = document.getElementById('wardrobe-close');
+  const finishBtn = document.getElementById('wardrobe-finish-first');
+  if (closeBtn) closeBtn.style.display = '';
+  if (finishBtn) finishBtn.style.display = 'none';
+}
+function isWardrobeOpen() {
+  const overlay = document.getElementById('wardrobe-overlay');
+  return overlay ? overlay.classList.contains('visible') : false;
+}
+function toggleWardrobe() {
+  if (isWardrobeOpen()) closeWardrobe();
+  else openWardrobe();
 }
 
 // === Join Button ===
 joinBtn.addEventListener('click', () => {
   const username = usernameInput.value.trim();
   if (username.length < 1 || username.length > 20) return;
+  // Decide first-launch customization BEFORE saving prefs — a returning player will already
+  // have `appearance` in localStorage; a brand-new one on this device won't.
+  const priorPrefs = loadPreferences();
+  const isNewUser = !priorPrefs.appearance;
   savePreferences();
-  startApp(username);
+  startApp(username, { showInitialCustomize: isNewUser });
 });
 
 usernameInput.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') joinBtn.click();
 });
 
-async function startApp(username) {
+async function startApp(username, opts = {}) {
   loginScreen.style.display = 'none';
   gameContainer.style.display = 'flex';
   // Chat starts minimized by default — user opens it via the top-right 💬 button.
@@ -218,6 +281,12 @@ async function startApp(username) {
 
       // Furniture collision checker — every item affects everyone.
       setFurnitureCollider(() => globalFurniture);
+
+      // First-launch: new users design their character right after entering the office,
+      // instead of being asked for every palette choice upfront on the login screen.
+      if (opts.showInitialCustomize) {
+        openWardrobe({ firstTime: true });
+      }
     } catch (err) {
       console.error('AUTH:OK HANDLER ERROR:', err);
     }
@@ -261,6 +330,13 @@ function setupNetworkHandlers() {
   network.on('player:died', ({ id }) => {
     triggerRemoteDeath(id);
     playMarioDeathSound();
+  });
+
+  // Wardrobe — remote player changed their appearance. Update their RemotePlayer so the
+  // game loop draws them with the new look immediately.
+  network.on('appearance:update', ({ id, appearance }) => {
+    const rp = remotePlayers.get(id);
+    if (rp) rp.appearance = appearance || {};
   });
 
   // Pixel-cake easter egg — server announces who's holding a cake and until when.
@@ -707,6 +783,12 @@ function setupGameCallbacks() {
         if (!handled && mapMod.isBoardNearby && mapMod.isBoardNearby(localPlayer.x, localPlayer.y)) {
           if (isBoardOpen()) closeBoard();
           else openBoard();
+          handled = true;
+        }
+
+        // 3. Wardrobe in the Resting Area
+        if (!handled && mapMod.isWardrobeNearby && mapMod.isWardrobeNearby(localPlayer.x, localPlayer.y)) {
+          toggleWardrobe();
           handled = true;
         }
 
@@ -1370,7 +1452,9 @@ function setupFurnitureMenu() {
     // Click the highlighted button again (or press Esc) to deselect.
   });
 
-  // Right-click to remove furniture (find nearest placed item — any player's)
+  // Right-click to remove furniture — picks the visually-topmost item under the cursor.
+  // "Topmost" means: highest draw-layer (ceiling > regular > rug) wins, and within the same
+  // layer the last-placed item wins (because that's how drawPlacedFurniture layers them).
   canvas.addEventListener('contextmenu', (e) => {
     e.preventDefault();
     if (!localPlayer || globalFurniture.length === 0) return;
@@ -1381,19 +1465,8 @@ function setupFurnitureMenu() {
     const worldX = e.clientX - rect.left + cam.x;
     const worldY = e.clientY - rect.top + cam.y;
 
-    // Find the closest item within 32px — furniture is shared, anyone can remove anything
-    let closest = null;
-    let closestDist = 32;
-    for (const item of globalFurniture) {
-      const dist = Math.sqrt((item.x - worldX) ** 2 + (item.y - worldY) ** 2);
-      if (dist < closestDist) {
-        closest = item;
-        closestDist = dist;
-      }
-    }
-    if (closest) {
-      network.emit('furniture:remove', { itemId: closest.id });
-    }
+    const picked = pickTopFurnitureAt(worldX, worldY);
+    if (picked) network.emit('furniture:remove', { itemId: picked.id });
   });
 
   // Esc key clears the current furniture selection (since clicks no longer auto-deselect).
@@ -1481,6 +1554,48 @@ let meetingInterval = null;
 
 // Clear any legacy localStorage furniture entry — server is the single source of truth now.
 try { localStorage.removeItem('rgteamspeak_furniture'); } catch {}
+
+// Small tabletop items that sit on top of bigger furniture — use a tighter hitbox so
+// clicking outside the item actually misses it (and hits whatever is underneath).
+const SMALL_FURNITURE = new Set([
+  'lamp', 'lava_lamp', 'clock', 'trophy', 'figurine',
+  'donut_box', 'sign', 'neon_sign', 'trashcan',
+  'headphones', 'keyboard', 'fan', 'plant', 'monitor',
+]);
+// Rug types cover the whole floor tile — duplicated here from game.js to avoid a new import.
+const RUG_TYPES_CLIENT = new Set(['rug', 'rug_blue', 'rug_green', 'rug_gray', 'rug_black']);
+
+// Bounding box half-extent (in pixels) per item type — drives right-click hit testing.
+// Default near-tile (14) works for most furniture that fills its cell; smaller items
+// use a tight box so they don't "eclipse" the table/desk they sit on.
+function itemHitHalf(type) {
+  if (RUG_TYPES_CLIENT.has(type)) return 16;    // rugs cover the whole tile
+  if (SMALL_FURNITURE.has(type)) return 8;     // small tabletop knick-knacks
+  return 14;                                    // default: near-full tile
+}
+
+// Returns the topmost furniture item whose bounding box contains (worldX, worldY),
+// or null if no item is under the cursor. Topmost = highest draw layer first, then
+// within the same layer the most-recently-placed (last) item wins.
+function pickTopFurnitureAt(worldX, worldY) {
+  const LAYER_PRI = { rug: 0, regular: 1, ceiling: 2 };
+  let best = null;
+  let bestScore = -1;
+  for (let i = 0; i < globalFurniture.length; i++) {
+    const item = globalFurniture[i];
+    const half = itemHitHalf(item.type);
+    if (Math.abs(worldX - item.x) > half) continue;
+    if (Math.abs(worldY - item.y) > half) continue;
+    const layer = LAYER_PRI[getFurnitureLayer(item.type)] ?? 1;
+    // layer * 1e6 + index: higher layer dominates, ties broken by placement order.
+    const score = layer * 1000000 + i;
+    if (score > bestScore) {
+      best = item;
+      bestScore = score;
+    }
+  }
+  return best;
+}
 
 // === Player Stats & Levels (server-authoritative) ===
 // The server is the single source of truth for stats (persisted per username
@@ -1951,8 +2066,16 @@ function playLevelUpSound() {
   } catch (e) { /* audio not available */ }
 }
 
+// Wardrobe close button (available from page load).
+document.getElementById('wardrobe-close')?.addEventListener('click', closeWardrobe);
+// First-launch finish — confirms the starting look and closes the wardrobe into the game.
+document.getElementById('wardrobe-finish-first')?.addEventListener('click', () => {
+  savePreferences();
+  closeWardrobe();
+});
+
 // Run setup immediately (doesn't need auth — UI only, no network)
 setupScreenShareWindow();
 
-// === Initialize customization on load ===
-buildCustomization();
+// The customization UI now lives inside the Wardrobe overlay, which isn't populated until
+// the player walks up to it and opens it. See openWardrobe() below.

@@ -133,6 +133,8 @@ function createMap() {
   // Resting
   fill(11, 2, 3, 1, T.COUCH); fill(11, 4, 3, 1, T.COUCH);
   m[3][15] = T.TABLE; m[3][16] = T.TABLE; m[1][10] = T.PLANT;
+  // Wardrobe against the back wall — walk to it + press E to open customization
+  m[1][14] = T.WARDROBE;
 
   // Restroom — split into His & Hers with wall at col 22
   vWall(22, 0, 7);
@@ -889,6 +891,28 @@ export function drawMap(ctx, camera) {
           ctx.fillRect(x + 10, y, TILE_SIZE, TILE_SIZE);
           break;
         }
+        case T.WARDROBE: {
+          // Wooden armoire with two doors, brass handles, and a small mirror panel
+          ctx.fillStyle = colors.fill;
+          ctx.fillRect(x + 3, y + 2, TILE_SIZE - 6, TILE_SIZE - 4);
+          // Door split down the middle
+          ctx.fillStyle = colors.door;
+          ctx.fillRect(x + 4, y + 4, 11, TILE_SIZE - 8);
+          ctx.fillRect(x + TILE_SIZE - 15, y + 4, 11, TILE_SIZE - 8);
+          // Mirror on the left door
+          ctx.fillStyle = colors.mirror;
+          ctx.fillRect(x + 6, y + 6, 7, 10);
+          ctx.fillStyle = colors.mirrorShadow;
+          ctx.fillRect(x + 6, y + 13, 7, 3);
+          // Door handles
+          ctx.fillStyle = colors.handle;
+          ctx.fillRect(x + 13, y + 16, 2, 3);
+          ctx.fillRect(x + TILE_SIZE - 15, y + 16, 2, 3);
+          // Shadow at the base
+          ctx.fillStyle = 'rgba(0,0,0,0.35)';
+          ctx.fillRect(x + 3, y + TILE_SIZE - 3, TILE_SIZE - 6, 1);
+          break;
+        }
         case T.GAMING_FLOOR: {
           // Dark purple carpet — subtle grid hint
           ctx.strokeStyle = colors.grid;
@@ -1199,6 +1223,18 @@ export function isBoardNearby(px, py) {
       const r = row + dr;
       const c = col + dc;
       if (r >= 5 && r <= 7 && getTile(c, r) === T.BOARD) return true;
+    }
+  }
+  return false;
+}
+
+// Player-next-to-wardrobe check — used by main.js to show the interact hint and wire the E key.
+export function isWardrobeNearby(px, py) {
+  const col = Math.floor(px / TILE_SIZE);
+  const row = Math.floor(py / TILE_SIZE);
+  for (let dr = -1; dr <= 1; dr++) {
+    for (let dc = -1; dc <= 1; dc++) {
+      if (getTile(col + dc, row + dr) === T.WARDROBE) return true;
     }
   }
   return false;

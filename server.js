@@ -352,6 +352,22 @@ io.on('connection', (socket) => {
     socket.broadcast.emit('zone:changed', { playerId: socket.id, zoneId });
   });
 
+  // --- Wardrobe: appearance change while in-game (relay to everyone else) ---
+  socket.on('appearance:update', ({ appearance }) => {
+    const player = players.get(socket.id);
+    if (!player) return;
+    if (!appearance || typeof appearance !== 'object') return;
+    // Only allow known keys — ignore anything weird a client might send.
+    const allowed = ['skinTone', 'hairStyle', 'hairColor', 'shirtColor', 'pantsColor', 'hat', 'face', 'outfit'];
+    const clean = {};
+    for (const k of allowed) {
+      const v = appearance[k];
+      if (typeof v === 'string' && v.length <= 30) clean[k] = v;
+    }
+    player.appearance = { ...player.appearance, ...clean };
+    socket.broadcast.emit('appearance:update', { id: socket.id, appearance: player.appearance });
+  });
+
   // --- Main Chat (session-only, in-memory) ---
   socket.on('chat:send', ({ message, zone }) => {
     const player = players.get(socket.id);

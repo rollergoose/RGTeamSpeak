@@ -638,7 +638,7 @@ const S = 32; // tile size for placed furniture
 const RUG_TYPES = new Set(['rug', 'rug_blue', 'rug_green', 'rug_gray', 'rug_black']);
 const CEILING_TYPES = new Set(['ceiling_fan', 'ceiling_light']);
 
-function getFurnitureLayer(type) {
+export function getFurnitureLayer(type) {
   if (RUG_TYPES.has(type)) return 'rug';
   if (CEILING_TYPES.has(type)) return 'ceiling';
   return 'regular';

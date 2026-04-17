@@ -20,47 +20,7 @@
         <input type="text" id="username-input" maxlength="20" placeholder="Enter your name..." autofocus>
       </div>
 
-      <div class="customization">
-        <h3>Customize Your Character</h3>
-        <div class="preview-row">
-          <canvas id="char-preview" width="80" height="80"></canvas>
-        </div>
-        <div class="custom-section">
-          <label>Skin Tone</label>
-          <div id="skin-options" class="palette"></div>
-        </div>
-        <div class="custom-section">
-          <label>Hair Style</label>
-          <div id="hair-style-options" class="hair-styles"></div>
-        </div>
-        <div class="custom-section">
-          <label>Hair Color</label>
-          <div id="hair-color-options" class="palette"></div>
-        </div>
-        <div class="custom-section">
-          <label>Shirt Color</label>
-          <div id="shirt-options" class="palette"></div>
-        </div>
-        <div class="custom-section">
-          <label>Pants Color</label>
-          <div id="pants-options" class="palette"></div>
-        </div>
-      </div>
-
-      <div class="custom-section">
-        <label>Hat <span class="unlock-hint">(unlock with levels)</span></label>
-        <div id="hat-options" class="hair-styles"></div>
-      </div>
-
-      <div class="custom-section">
-        <label>Face <span class="unlock-hint">(unlock with levels)</span></label>
-        <div id="face-options" class="hair-styles"></div>
-      </div>
-
-      <div class="custom-section">
-        <label>Outfit <span class="unlock-hint">(unlock with levels)</span></label>
-        <div id="outfit-options" class="hair-styles"></div>
-      </div>
+      <p class="login-hint">Enter the office, then visit the 🚪 wardrobe in the Resting Area to customize your character.</p>
 
       <button id="join-btn">Enter Office</button>
     </div>
@@ -281,6 +241,53 @@
       <div class="archives-input-bar">
         <input type="text" id="archives-input" placeholder="Write to archives..." maxlength="500">
         <button id="archives-send">Save</button>
+      </div>
+    </div>
+
+    <!-- Wardrobe overlay — opens when player stands next to the wardrobe in the Resting Area -->
+    <div id="wardrobe-overlay">
+      <div class="wardrobe-header">
+        <span>🚪 Wardrobe</span>
+        <button id="wardrobe-close" class="ctrl-btn">✕</button>
+      </div>
+      <div class="wardrobe-content">
+        <div class="wardrobe-preview-row">
+          <canvas id="char-preview" width="96" height="96"></canvas>
+        </div>
+        <div class="custom-section">
+          <label>Skin Tone</label>
+          <div id="skin-options" class="palette"></div>
+        </div>
+        <div class="custom-section">
+          <label>Hair Style</label>
+          <div id="hair-style-options" class="hair-styles"></div>
+        </div>
+        <div class="custom-section">
+          <label>Hair Color</label>
+          <div id="hair-color-options" class="palette"></div>
+        </div>
+        <div class="custom-section">
+          <label>Shirt Color</label>
+          <div id="shirt-options" class="palette"></div>
+        </div>
+        <div class="custom-section">
+          <label>Pants Color</label>
+          <div id="pants-options" class="palette"></div>
+        </div>
+        <div class="custom-section">
+          <label>Hat <span class="unlock-hint">(unlock with levels)</span></label>
+          <div id="hat-options" class="hair-styles"></div>
+        </div>
+        <div class="custom-section">
+          <label>Face <span class="unlock-hint">(unlock with levels)</span></label>
+          <div id="face-options" class="hair-styles"></div>
+        </div>
+        <div class="custom-section">
+          <label>Outfit <span class="unlock-hint">(unlock with levels)</span></label>
+          <div id="outfit-options" class="hair-styles"></div>
+        </div>
+        <!-- Shown only on first launch so the player can confirm their starting look. -->
+        <button id="wardrobe-finish-first" class="wardrobe-finish-btn" style="display:none">✨ Enter the office →</button>
       </div>
     </div>
 

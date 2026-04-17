@@ -58,6 +58,8 @@ export const T = {
   GAMING_PC: 44,
   GAMING_CONSOLE: 45,
   GAMING_FLOOR: 46,
+  // Wardrobe in the Resting Area — walk up + E to open customization
+  WARDROBE: 47,
 };
 
 // === Tile Colors ===
@@ -114,10 +116,11 @@ export const TILE_COLORS = {
   [T.GAMING_PC]:     { fill: '#141218', frame: '#0a0a0e', desk: '#2a2432', keyboard: '#1a1a22' },
   [T.GAMING_CONSOLE]:{ fill: '#0a0a0a', stand: '#2a2530', accent: '#6a3fb5' },
   [T.GAMING_FLOOR]:  { fill: '#2a1e3a', grid: '#3a2a4a' }, // dark purple carpet, gamer vibe
+  [T.WARDROBE]:      { fill: '#6b4520', door: '#7d5230', handle: '#f5d98a', mirror: '#d4e6f1', mirrorShadow: '#a4c6d8' },
 };
 
 // === Which tiles block movement ===
-export const SOLID_TILES = new Set([T.WALL, T.DESK, T.TABLE, T.TV, T.COMPUTER, T.MEETING_TABLE, T.COUNTER, T.TOILET_TILE, T.PLANT, T.FENCE, T.WINDOW, T.BUS_SIGN, T.TREADMILL, T.WEIGHT_BENCH, T.DUMBBELL, T.SHELF, T.CASHIER, T.CINEMA_SEAT, T.CINEMA_SCREEN, T.DRAPE, T.AGILITY_TUNNEL, T.PARK_FENCE, T.PARK_BENCH, T.BBQ_GRILL, T.STREETLIGHT, T.DONUT_BOX_TILE, T.PIZZA_BOX_TILE, T.GAMING_PC, T.GAMING_CONSOLE]);
+export const SOLID_TILES = new Set([T.WALL, T.DESK, T.TABLE, T.TV, T.COMPUTER, T.MEETING_TABLE, T.COUNTER, T.TOILET_TILE, T.PLANT, T.FENCE, T.WINDOW, T.BUS_SIGN, T.TREADMILL, T.WEIGHT_BENCH, T.DUMBBELL, T.SHELF, T.CASHIER, T.CINEMA_SEAT, T.CINEMA_SCREEN, T.DRAPE, T.AGILITY_TUNNEL, T.PARK_FENCE, T.PARK_BENCH, T.BBQ_GRILL, T.STREETLIGHT, T.DONUT_BOX_TILE, T.PIZZA_BOX_TILE, T.GAMING_PC, T.GAMING_CONSOLE, T.WARDROBE]);
 
 // === Player ===
 export const MOVE_SPEED = 2.5;
