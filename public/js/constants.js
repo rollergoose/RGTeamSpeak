@@ -60,6 +60,10 @@ export const T = {
   GAMING_FLOOR: 46,
   // Wardrobe in the Resting Area — walk up + E to open customization
   WARDROBE: 47,
+  // Island world
+  WATER: 48,
+  SAND: 49,
+  DOCK: 50,
 };
 
 // === Tile Colors ===
@@ -117,10 +121,14 @@ export const TILE_COLORS = {
   [T.GAMING_CONSOLE]:{ fill: '#0a0a0a', stand: '#2a2530', accent: '#6a3fb5' },
   [T.GAMING_FLOOR]:  { fill: '#2a1e3a', grid: '#3a2a4a' }, // dark purple carpet, gamer vibe
   [T.WARDROBE]:      { fill: '#6b4520', door: '#7d5230', handle: '#f5d98a', mirror: '#d4e6f1', mirrorShadow: '#a4c6d8' },
+  // Island
+  [T.WATER]:         { fill: '#2a6fb5', shimmer: '#4f92d4', deep: '#1e5590' },
+  [T.SAND]:          { fill: '#e8d5a3', dark: '#d4bf8c' },
+  [T.DOCK]:          { fill: '#8b5a2b', plank: '#6b4320', nail: '#3a2a1a' },
 };
 
 // === Which tiles block movement ===
-export const SOLID_TILES = new Set([T.WALL, T.DESK, T.TABLE, T.TV, T.COMPUTER, T.MEETING_TABLE, T.COUNTER, T.TOILET_TILE, T.PLANT, T.FENCE, T.WINDOW, T.BUS_SIGN, T.TREADMILL, T.WEIGHT_BENCH, T.DUMBBELL, T.SHELF, T.CASHIER, T.CINEMA_SEAT, T.CINEMA_SCREEN, T.DRAPE, T.AGILITY_TUNNEL, T.PARK_FENCE, T.PARK_BENCH, T.BBQ_GRILL, T.STREETLIGHT, T.DONUT_BOX_TILE, T.PIZZA_BOX_TILE, T.GAMING_PC, T.GAMING_CONSOLE, T.WARDROBE]);
+export const SOLID_TILES = new Set([T.WALL, T.DESK, T.TABLE, T.TV, T.COMPUTER, T.MEETING_TABLE, T.COUNTER, T.TOILET_TILE, T.PLANT, T.FENCE, T.WINDOW, T.BUS_SIGN, T.TREADMILL, T.WEIGHT_BENCH, T.DUMBBELL, T.SHELF, T.CASHIER, T.CINEMA_SEAT, T.CINEMA_SCREEN, T.DRAPE, T.AGILITY_TUNNEL, T.PARK_FENCE, T.PARK_BENCH, T.BBQ_GRILL, T.STREETLIGHT, T.DONUT_BOX_TILE, T.PIZZA_BOX_TILE, T.GAMING_PC, T.GAMING_CONSOLE, T.WARDROBE, T.WATER]);
 
 // === Player ===
 export const MOVE_SPEED = 2.5;
@@ -222,12 +230,20 @@ export const ZONE_TYPES = {
   CINEMA: 'cinema',
   DOGPARK: 'dogpark',
   GAMING: 'gaming',
+  ISLAND_DOCK: 'island_dock',
+  ISLAND_BEACH: 'island_beach',
+  ISLAND_YARD: 'island_yard',
+  ISLAND_HOUSE: 'island_house',
 };
 
 // Spawn in the hallway (row 8, center)
 // Spawn at the bus stop / yard entrance
 export const SPAWN_X = 36 * TILE_SIZE;
 export const SPAWN_Y = 18 * TILE_SIZE;
+
+// Island ferry dock spawn — player arrives on the east-side dock facing west
+export const ISLAND_SPAWN_X = 47 * TILE_SIZE;
+export const ISLAND_SPAWN_Y = 17 * TILE_SIZE;
 
 // === WebRTC ===
 export const ICE_SERVERS = [

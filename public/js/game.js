@@ -1,4 +1,4 @@
-import { drawMap, drawZoneLabels, isBoardNearby, ZONES_PX } from './map.js';
+import { drawMap, drawZoneLabels, isBoardNearby, ZONES_PX, getCurrentWorld, WORLDS } from './map.js';
 import { drawCharacter } from './characters.js';
 import { Camera } from './camera.js';
 import { checkZone, getCurrentZone } from './zones.js';
@@ -66,6 +66,7 @@ function computeDeathOffset(elapsedMs) {
 // AABB overlap of the local player and any active vehicle → trigger the death animation.
 function checkVehicleCollision() {
   if (!localPlayer || localPlayer.isDead) return;
+  if (getCurrentWorld() !== WORLDS.CITY) return; // no street on the island
   if (performance.now() - lastRespawnAt < RESPAWN_GRACE_MS) return;
   const pLeft  = localPlayer.x - PLAYER_WIDTH / 2;
   const pRight = localPlayer.x + PLAYER_WIDTH / 2;
@@ -232,8 +233,10 @@ function gameLoop(timestamp) {
   for (const rp of remotePlayers.values()) { rp.interpolate(dt); }
 
   // Update pets
-  updatePets(dt);
-  updateDogPark(dt);
+  if (getCurrentWorld() === WORLDS.CITY) {
+    updatePets(dt);
+    updateDogPark(dt);
+  }
 
   const nearBoard = isBoardNearby(localPlayer.x, localPlayer.y);
   if (onBoardProximity) onBoardProximity(nearBoard);
@@ -247,14 +250,17 @@ function gameLoop(timestamp) {
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
   drawMap(ctx, camera);
-  drawLockedDoors(ctx, camera);
+  const inCity = getCurrentWorld() === WORLDS.CITY;
+  if (inCity) drawLockedDoors(ctx, camera);
   drawZoneLabels(ctx, camera);
-  // Rugs first — they sit flat on the floor under everything else.
-  drawPlacedFurniture(ctx, camera, 'rug');
-  drawPlacedFurniture(ctx, camera, 'regular');
-  drawPets(ctx, camera);
-  drawDogPark(ctx, camera);
-  drawNoticeBadges(ctx, camera);
+  if (inCity) {
+    // City-only decoration — rugs/furniture/dogs/notices live in the office world.
+    drawPlacedFurniture(ctx, camera, 'rug');
+    drawPlacedFurniture(ctx, camera, 'regular');
+    drawPets(ctx, camera);
+    drawDogPark(ctx, camera);
+    drawNoticeBadges(ctx, camera);
+  }
 
   const allChars = [];
 
@@ -348,10 +354,10 @@ function gameLoop(timestamp) {
   }
 
   // Ceiling-mounted items (fans, lights) render on top of characters and furniture.
-  drawPlacedFurniture(ctx, camera, 'ceiling');
+  if (inCity) drawPlacedFurniture(ctx, camera, 'ceiling');
 
-  // Draw vehicles on the street
-  updateAndDrawVehicles(ctx, camera, dt);
+  // Draw vehicles on the street — only the city has a street.
+  if (inCity) updateAndDrawVehicles(ctx, camera, dt);
 
   drawSessionTimer(ctx);
   drawInteractHint(ctx, nearBoard);

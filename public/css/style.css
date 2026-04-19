@@ -2793,3 +2793,80 @@ body:has(#furniture-menu.visible) #status-toggle-btn {
   background: rgba(255,255,255,0.12);
   border-radius: 3px;
 }
+
+/* === Travel destination picker (bus stop / ferry dock) === */
+#travel-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.55);
+  z-index: 75;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s;
+  backdrop-filter: blur(4px);
+}
+#travel-overlay.visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+.travel-card {
+  background: rgba(12,12,25,0.98);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 14px;
+  width: 440px;
+  max-width: 92vw;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+  overflow: hidden;
+}
+.travel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 20px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  font-size: 16px;
+  font-weight: 600;
+}
+.travel-options {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 18px;
+}
+.travel-dest {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 10px;
+  color: #fff;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  transition: background 0.15s, border-color 0.15s, transform 0.05s;
+}
+.travel-dest:hover {
+  background: rgba(255,255,255,0.08);
+  border-color: rgba(255,255,255,0.2);
+}
+.travel-dest:active { transform: scale(0.98); }
+.travel-dest-icon {
+  font-size: 32px;
+  line-height: 1;
+  width: 44px;
+  text-align: center;
+}
+.travel-dest-name {
+  font-size: 16px;
+  font-weight: 600;
+}
+.travel-dest-sub {
+  font-size: 12px;
+  opacity: 0.65;
+  margin-top: 2px;
+}

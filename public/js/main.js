@@ -1,4 +1,4 @@
-import { SKIN_TONES, HAIR_COLORS, SHIRT_COLORS, PANTS_COLORS, HAIR_STYLES, SPAWN_X, SPAWN_Y, ZONE_TYPES, BANDWIDTH_OPTIONS, DEFAULT_BANDWIDTH, HATS, OUTFITS, FACES, LEVEL_CATEGORIES } from './constants.js';
+import { SKIN_TONES, HAIR_COLORS, SHIRT_COLORS, PANTS_COLORS, HAIR_STYLES, SPAWN_X, SPAWN_Y, ISLAND_SPAWN_X, ISLAND_SPAWN_Y, ZONE_TYPES, BANDWIDTH_OPTIONS, DEFAULT_BANDWIDTH, HATS, OUTFITS, FACES, LEVEL_CATEGORIES } from './constants.js';
 import { Player } from './player.js';
 import { initGame, setCallbacks, setInputFocused, getCamera, triggerRemoteDeath, getFurnitureLayer } from './game.js';
 import { setLockedDoorChecker, setFurnitureCollider } from './player.js';
@@ -207,6 +207,66 @@ function isWardrobeOpen() {
 function toggleWardrobe() {
   if (isWardrobeOpen()) closeWardrobe();
   else openWardrobe();
+}
+
+// === Travel destination picker ===
+// Opens from the city bus stop or the island ferry dock. Teleports the local
+// player between worlds and rebuilds the map/zones in place.
+let _travelWired = false;
+function wireTravelPicker() {
+  if (_travelWired) return;
+  _travelWired = true;
+  const overlay = document.getElementById('travel-overlay');
+  if (!overlay) return;
+  const closeBtn = document.getElementById('travel-close');
+  if (closeBtn) closeBtn.addEventListener('click', closeTravelPicker);
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) closeTravelPicker();
+  });
+  overlay.querySelectorAll('.travel-dest').forEach(btn => {
+    btn.addEventListener('click', () => travelTo(btn.dataset.dest));
+  });
+}
+function openTravelPicker() {
+  wireTravelPicker();
+  const overlay = document.getElementById('travel-overlay');
+  if (!overlay) return;
+  // Reflect current world in the header so the player knows they're switching away
+  const mapMod = requireMap();
+  const here = mapMod.getCurrentWorld ? mapMod.getCurrentWorld() : 'city';
+  const title = document.getElementById('travel-title');
+  if (title) title.textContent = here === 'island' ? '⛴️ Ferry — where to?' : '🚌 Bus stop — where to?';
+  overlay.classList.add('visible');
+}
+function closeTravelPicker() {
+  const overlay = document.getElementById('travel-overlay');
+  if (overlay) overlay.classList.remove('visible');
+}
+function isTravelPickerOpen() {
+  const overlay = document.getElementById('travel-overlay');
+  return overlay ? overlay.classList.contains('visible') : false;
+}
+function toggleTravelPicker() {
+  if (isTravelPickerOpen()) closeTravelPicker();
+  else openTravelPicker();
+}
+function travelTo(dest) {
+  const mapMod = requireMap();
+  if (!mapMod.setWorld || !localPlayer) { closeTravelPicker(); return; }
+  if (dest === 'island') {
+    mapMod.setWorld('island');
+    localPlayer.x = ISLAND_SPAWN_X;
+    localPlayer.y = ISLAND_SPAWN_Y;
+    localPlayer.direction = 'left';
+  } else {
+    mapMod.setWorld('city');
+    localPlayer.x = SPAWN_X;
+    localPlayer.y = SPAWN_Y;
+    localPlayer.direction = 'down';
+  }
+  localPlayer.isMoving = false;
+  try { network.emit('player:move', { x: localPlayer.x, y: localPlayer.y, direction: localPlayer.direction, isMoving: false }); } catch {}
+  closeTravelPicker();
 }
 
 // === Join Button ===
@@ -432,6 +492,10 @@ function setupZoneCallbacks() {
       document.getElementById('notice-board-overlay').classList.remove('visible');
       document.getElementById('furniture-menu').classList.remove('visible');
       document.getElementById('furn-toggle-btn').style.display = 'none';
+      // Closing the panel implicitly ends placement mode — matches the rule
+      // that stray canvas clicks shouldn't keep dropping the last-picked item.
+      selectedFurniture = null;
+      document.querySelectorAll('#furniture-items .furn-btn.selected').forEach(b => b.classList.remove('selected'));
     }
   });
 }
@@ -789,6 +853,12 @@ function setupGameCallbacks() {
         // 3. Wardrobe in the Resting Area
         if (!handled && mapMod.isWardrobeNearby && mapMod.isWardrobeNearby(localPlayer.x, localPlayer.y)) {
           toggleWardrobe();
+          handled = true;
+        }
+
+        // 4. Travel point (city bus stop / island ferry dock)
+        if (!handled && mapMod.isTravelPointNearby && mapMod.isTravelPointNearby(localPlayer.x, localPlayer.y)) {
+          toggleTravelPicker();
           handled = true;
         }
 
@@ -1395,10 +1465,19 @@ function setupFurnitureMenu() {
   const tabs = document.querySelectorAll('.furn-tab');
   const canvas = document.getElementById('game-canvas');
 
+  // Clearing selection when the panel closes prevents stray canvas clicks from
+  // placing the last-picked item after the player has moved on to doing other
+  // things — otherwise the "placement mode" lives on invisibly.
+  function clearFurnitureSelection() {
+    selectedFurniture = null;
+    allBtns.forEach(b => b.classList.remove('selected'));
+  }
+
   // Toggle button opens/closes the panel
   const toggleBtn = document.getElementById('furn-toggle-btn');
   toggleBtn.addEventListener('click', () => {
     menu.classList.toggle('visible');
+    if (!menu.classList.contains('visible')) clearFurnitureSelection();
   });
 
   // Category tab filtering
@@ -1432,6 +1511,9 @@ function setupFurnitureMenu() {
   // Click on canvas to place furniture
   canvas.addEventListener('click', (e) => {
     if (!selectedFurniture) return;
+    // Placement only happens while the furniture panel is actually visible —
+    // closing the panel should end placement mode even if a button was selected.
+    if (!menu.classList.contains('visible')) { clearFurnitureSelection(); return; }
     if (!localPlayer) return;
 
     const cam = getCamera();

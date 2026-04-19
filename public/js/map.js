@@ -16,6 +16,15 @@ const OVERLAY_BASE = {
   [T.PARK_BENCH]:     T.GRASS,
 };
 
+// === World definitions ===
+// The game has multiple worlds that share the same canvas/tile grid; the player
+// teleports between them from the city bus stop / island ferry dock. Switching
+// mutates the exported `tileMap` and `ZONES_PX` in place so existing imports
+// (player collision, zone tracking, drawing) just keep working.
+export const WORLDS = { CITY: 'city', ISLAND: 'island' };
+let currentWorld = WORLDS.CITY;
+export function getCurrentWorld() { return currentWorld; }
+
 /*
   OFFICE LAYOUT v6 — 50 cols x 35 rows
   Same office on top, 3 wall-to-wall venues across the street, small park east.
@@ -46,7 +55,7 @@ const OVERLAY_BASE = {
   Cinema right wall at col 33; cols 34-48 row 25-33 = grass park.
 */
 
-export const ZONES = [
+export const CITY_ZONES = [
   // TOP ROW (left to right)
   // TOP ROW — utility rooms
   { id: 'tv_area',   name: 'Video Hangout',  type: ZONE_TYPES.CHILL,    tx: 1,  ty: 1,  tw: 8,  th: 5 },
@@ -78,15 +87,30 @@ export const ZONES = [
   { id: 'dogpark',   name: '🐕 Dog Park',        type: ZONE_TYPES.DOGPARK,  tx: 35, ty: 25, tw: 13, th: 9 },
 ];
 
-export const ZONES_PX = ZONES.map(z => ({
-  ...z,
-  x: z.tx * TILE_SIZE,
-  y: z.ty * TILE_SIZE,
-  w: z.tw * TILE_SIZE,
-  h: z.th * TILE_SIZE,
-}));
+export const ISLAND_ZONES = [
+  { id: 'island_house', name: '🏠 House',         type: ZONE_TYPES.ISLAND_HOUSE, tx: 3,  ty: 10, tw: 8,  th: 8 },
+  { id: 'island_yard',  name: '🌴 Yard',          type: ZONE_TYPES.ISLAND_YARD,  tx: 11, ty: 8,  tw: 32, th: 19 },
+  { id: 'island_beach', name: '🏖️ Beach',         type: ZONE_TYPES.ISLAND_BEACH, tx: 43, ty: 7,  tw: 2,  th: 21 },
+  { id: 'island_dock',  name: '⛴️ Ferry Dock',    type: ZONE_TYPES.ISLAND_DOCK,  tx: 45, ty: 15, tw: 4,  th: 5 },
+];
 
-function createMap() {
+// Back-compat alias — a few modules (pets, some scripts) imported ZONES by name.
+export const ZONES = CITY_ZONES;
+
+function zonesToPx(zoneList) {
+  return zoneList.map(z => ({
+    ...z,
+    x: z.tx * TILE_SIZE,
+    y: z.ty * TILE_SIZE,
+    w: z.tw * TILE_SIZE,
+    h: z.th * TILE_SIZE,
+  }));
+}
+
+// Mutated in place when the world changes so existing imports keep their reference.
+export const ZONES_PX = zonesToPx(CITY_ZONES);
+
+function createCityMap() {
   const m = [];
   for (let r = 0; r < MAP_ROWS; r++) {
     m[r] = [];
@@ -214,7 +238,10 @@ function createMap() {
   m[10][22] = T.PLANT; m[10][30] = T.PLANT;
 
   // ========== OUTSIDE YARD (cols 33-48, rows 10-17) ==========
-  m[9][34] = T.DOOR; m[9][35] = T.DOOR;
+  // Door sits at cols 33-34 so the player walks straight from the hallway exit,
+  // down the yard sidewalk (cols 33-34), across the crosswalk (cols 33-34), to
+  // the south sidewalk — one continuous vertical line with no side-step.
+  m[9][33] = T.DOOR; m[9][34] = T.DOOR;
   fill(33, 10, 17, 8, T.GRASS);
   fill(33, 10, 2, 8, T.SIDEWALK); // path from building door down to sidewalk
   // No fence — open yard
@@ -333,7 +360,86 @@ function createMap() {
   return m;
 }
 
-export const tileMap = createMap();
+// ============================================================
+// ISLAND MAP — arrived by ferry on the east-side dock, walk west
+// through sand beach → grass yard → house. Horizontal layout.
+// ============================================================
+function createIslandMap() {
+  const m = [];
+  for (let r = 0; r < MAP_ROWS; r++) {
+    m[r] = [];
+    for (let c = 0; c < MAP_COLS; c++) {
+      m[r][c] = T.WATER;
+    }
+  }
+
+  function fill(x, y, w, h, tile) {
+    for (let r = y; r < y + h && r < MAP_ROWS; r++)
+      for (let c = x; c < x + w && c < MAP_COLS; c++)
+        m[r][c] = tile;
+  }
+  function hWall(x, y, len) { fill(x, y, len, 1, T.WALL); }
+  function vWall(x, y, len) { fill(x, y, 1, len, T.WALL); }
+
+  // Outer world wall (same as city — keeps player from walking off the edge)
+  hWall(0, 0, MAP_COLS);
+  hWall(0, MAP_ROWS - 1, MAP_COLS);
+  vWall(0, 0, MAP_ROWS);
+  vWall(MAP_COLS - 1, 0, MAP_ROWS);
+
+  // Island land mass: sand ring around a grass interior
+  fill(2, 7, 42, 21, T.SAND);        // sand base cols 2-43, rows 7-27
+  fill(3, 8, 40, 19, T.GRASS);       // grass interior cols 3-42, rows 8-26
+
+  // ---- House on the west (cols 3-10, rows 10-17) ----
+  // 8x8 including walls. Door on the east wall facing the yard.
+  hWall(3, 10, 8);                   // north wall
+  hWall(3, 17, 8);                   // south wall
+  vWall(3, 10, 8);                   // west wall
+  vWall(10, 10, 8);                  // east wall
+  fill(4, 11, 6, 6, T.FLOOR);        // interior floor
+  m[13][10] = T.DOOR;                // east-wall door (aligned with yard path)
+  m[14][10] = T.DOOR;
+
+  // Interior decor — cozy little house
+  m[11][4] = T.COUCH; m[11][5] = T.COUCH; m[11][6] = T.COUCH;  // couch along north wall
+  fill(11, 11, 3, 1, T.RUG);         // rug below couch
+  m[11][9] = T.TV;                   // TV in NE corner
+  m[13][4] = T.TABLE;                // dining table
+  m[13][5] = T.CHAIR;
+  m[12][4] = T.CHAIR;
+  m[14][4] = T.CHAIR;
+  m[16][4] = T.COUNTER; m[16][5] = T.COUNTER; m[16][6] = T.COUNTER;  // kitchenette
+  m[11][8] = T.PLANT;
+  m[16][9] = T.PLANT;
+
+  // ---- Yard path (sidewalk) from house door east to the dock ----
+  // Door is at rows 13-14 col 10 → path runs rows 13-14, cols 11 to 43.
+  fill(11, 13, 33, 2, T.SIDEWALK);
+
+  // ---- Yard decoration ----
+  // Trees scattered on the grass
+  m[9][15]  = T.PLANT; m[9][22]  = T.PLANT; m[9][30]  = T.PLANT; m[9][38]  = T.PLANT;
+  m[25][17] = T.PLANT; m[25][26] = T.PLANT; m[25][35] = T.PLANT; m[25][41] = T.PLANT;
+  m[18][20] = T.PLANT; m[19][36] = T.PLANT;
+  // A picnic spot in the yard
+  fill(17, 17, 2, 2, T.RUG);
+  m[20][25] = T.BBQ_GRILL;
+  m[22][31] = T.PARK_BENCH;
+  m[11][33] = T.PARK_BENCH;
+
+  // ---- Ferry dock on the east side (cols 45-48, rows 15-19) ----
+  // The dock walkway juts out from the sand into the water. Player spawns here
+  // and walks west into the yard.
+  fill(44, 16, 1, 3, T.SAND);        // sand ramp where dock meets land
+  fill(45, 15, 4, 5, T.DOCK);        // 4-wide × 5-tall dock platform
+
+  return m;
+}
+
+// Active map — swapped in place by setWorld(). Not exported: modules that need
+// tile data go through isSolid() / getTile() instead.
+let tileMap = createCityMap();
 
 export function isSolid(col, row) {
   if (col < 0 || col >= MAP_COLS || row < 0 || row >= MAP_ROWS) return true;
@@ -343,6 +449,25 @@ export function isSolid(col, row) {
 export function getTile(col, row) {
   if (col < 0 || col >= MAP_COLS || row < 0 || row >= MAP_ROWS) return T.WALL;
   return tileMap[row][col];
+}
+
+// Swap the active world. Rebuilds `tileMap` and mutates `ZONES_PX` in place
+// (keeping the same array reference so existing imports stay valid).
+export function setWorld(worldId) {
+  if (worldId === currentWorld) return;
+  if (worldId === WORLDS.ISLAND) {
+    tileMap = createIslandMap();
+    const px = zonesToPx(ISLAND_ZONES);
+    ZONES_PX.length = 0;
+    for (const z of px) ZONES_PX.push(z);
+    currentWorld = WORLDS.ISLAND;
+  } else {
+    tileMap = createCityMap();
+    const px = zonesToPx(CITY_ZONES);
+    ZONES_PX.length = 0;
+    for (const z of px) ZONES_PX.push(z);
+    currentWorld = WORLDS.CITY;
+  }
 }
 
 export function drawMap(ctx, camera) {
@@ -1173,6 +1298,53 @@ export function drawMap(ctx, camera) {
           ctx.beginPath(); ctx.moveTo(x + 16, y + 4); ctx.lineTo(x + 16, y + 28); ctx.stroke();
           ctx.beginPath(); ctx.moveTo(x + 4, y + 16); ctx.lineTo(x + 28, y + 16); ctx.stroke();
           break;
+        case T.WATER: {
+          // Animated shimmering sea — darker base with shifting lighter ripples
+          ctx.fillStyle = colors.deep;
+          ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+          const waveT = Date.now() * 0.0015 + (c * 0.8 + r * 1.1);
+          ctx.fillStyle = colors.shimmer;
+          for (let i = 0; i < 3; i++) {
+            const wy = y + 6 + i * 10 + Math.sin(waveT + i) * 2;
+            ctx.fillRect(x + 2, wy, TILE_SIZE - 4, 1);
+          }
+          // Seeded sparkle
+          const seed = (c * 13 + r * 7) % 6;
+          if (seed < 2) {
+            ctx.fillStyle = 'rgba(255,255,255,0.35)';
+            ctx.fillRect(x + 6 + seed * 6, y + 8 + seed * 4, 2, 1);
+          }
+          break;
+        }
+        case T.SAND: {
+          // Sandy beach — warm tan with flecks
+          ctx.fillStyle = colors.fill;
+          ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+          ctx.fillStyle = colors.dark;
+          const sSeed = (c * 11 + r * 5) % 7;
+          if (sSeed < 4) ctx.fillRect(x + 4 + sSeed * 3, y + 6 + sSeed * 2, 2, 2);
+          if (sSeed < 3) ctx.fillRect(x + 20, y + 14, 1, 1);
+          if (sSeed < 2) ctx.fillRect(x + 8, y + 22, 1, 1);
+          break;
+        }
+        case T.DOCK: {
+          // Wooden pier planks — horizontal planks with nail dots
+          ctx.fillStyle = colors.fill;
+          ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+          // Plank dividers
+          ctx.fillStyle = colors.plank;
+          ctx.fillRect(x, y + 10, TILE_SIZE, 1);
+          ctx.fillRect(x, y + 21, TILE_SIZE, 1);
+          // Nails
+          ctx.fillStyle = colors.nail;
+          ctx.fillRect(x + 3,  y + 4,  1, 1);
+          ctx.fillRect(x + 28, y + 4,  1, 1);
+          ctx.fillRect(x + 3,  y + 15, 1, 1);
+          ctx.fillRect(x + 28, y + 15, 1, 1);
+          ctx.fillRect(x + 3,  y + 26, 1, 1);
+          ctx.fillRect(x + 28, y + 26, 1, 1);
+          break;
+        }
       }
     }
   }
@@ -1223,6 +1395,25 @@ export function isBoardNearby(px, py) {
       const r = row + dr;
       const c = col + dc;
       if (r >= 5 && r <= 7 && getTile(c, r) === T.BOARD) return true;
+    }
+  }
+  return false;
+}
+
+// True when the player is standing next to the travel point of the current world:
+// the yellow BUS_SIGN in the city, or anywhere on the DOCK on the island. Used by
+// main.js to wire the E key and (optionally) show a hint.
+export function isTravelPointNearby(px, py) {
+  const col = Math.floor(px / TILE_SIZE);
+  const row = Math.floor(py / TILE_SIZE);
+  // The city BUS_SIGN is a single tile flanked by a solid bench — widen the
+  // radius so the player can interact from either side without walking onto it.
+  const radius = currentWorld === WORLDS.CITY ? 3 : 1;
+  for (let dr = -radius; dr <= radius; dr++) {
+    for (let dc = -radius; dc <= radius; dc++) {
+      const t = getTile(col + dc, row + dr);
+      if (currentWorld === WORLDS.CITY && t === T.BUS_SIGN) return true;
+      if (currentWorld === WORLDS.ISLAND && t === T.DOCK) return true;
     }
   }
   return false;

@@ -310,6 +310,28 @@
       <div id="notice-notes" class="nb-board"></div>
     </div>
 
+    <!-- Travel destination picker (opens from bus stop / ferry dock) -->
+    <div id="travel-overlay">
+      <div class="travel-card">
+        <div class="travel-header">
+          <span id="travel-title">🚌 Where to?</span>
+          <button id="travel-close" class="ctrl-btn">✕</button>
+        </div>
+        <div class="travel-options">
+          <button class="travel-dest" data-dest="city">
+            <div class="travel-dest-icon">🏙️</div>
+            <div class="travel-dest-name">City</div>
+            <div class="travel-dest-sub">The office &amp; high street</div>
+          </button>
+          <button class="travel-dest" data-dest="island">
+            <div class="travel-dest-icon">🏝️</div>
+            <div class="travel-dest-name">Island</div>
+            <div class="travel-dest-sub">Quiet yard, little house, ferry dock</div>
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- Planning Board overlay -->
     <div id="board-overlay">
       <div class="board-header">
